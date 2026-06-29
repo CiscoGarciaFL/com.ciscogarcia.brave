@@ -1,0 +1,16 @@
+[Desktop Entry]
+Encoding=UTF-8
+Name=Brave Browser
+Comment=Brave Browser Plasma widget — embeds a full browser with a configurable home page
+Keywords=Brave;Browser;Web;Search
+Icon=brave-browser
+X-Plasma-API=declarativeappletscript
+Type=Service
+X-KDE-ServiceTypes=Plasma/Applet
+X-KDE-PluginInfo-Name=com.ciscogarcia.brave
+X-KDE-PluginInfo-Category=Online Services
+X-KDE-PluginInfo-EnabledByDefault=true
+X-KDE-PluginInfo-Version=1.0.0
+X-KDE-PluginInfo-Website=https://github.com/CiscoGarciaFL/com.ciscogarcia.brave
+X-KDE-PluginInfo-License=GPL-3.0-or-later
+X-Plasma-MainScript=ui/main.qml

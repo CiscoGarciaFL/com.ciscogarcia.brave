@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kcfg xmlns="http://www.kde.org/standards/kcfg/1.0"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="http://www.kde.org/standards/kcfg/1.0 http://www.kde.org/standards/kcfg/1.0/kcfg.xsd">
+    <kcfgfile name="com.ciscogarcia.brave"/>
+
+    <group name="General">
+        <entry name="homePage" type="String">
+            <label>URL loaded on startup and when the Home button is pressed.</label>
+            <default>https://search.brave.com/</default>
+        </entry>
+        <entry name="showUrlBar" type="Bool">
+            <label>Show the address/URL bar in the toolbar.</label>
+            <default>true</default>
+        </entry>
+        <entry name="allowClipboardAccess" type="Bool">
+            <label>Allow web pages to read/write the system clipboard.</label>
+            <default>true</default>
+        </entry>
+        <entry name="pin" type="Bool">
+            <label>Keep the widget open when it loses focus.</label>
+            <default>false</default>
+        </entry>
+        <entry name="debugConsole" type="Bool">
+            <label>Show the WebEngine developer console toggle in the toolbar.</label>
+            <default>false</default>
+        </entry>
+    </group>
+</kcfg>

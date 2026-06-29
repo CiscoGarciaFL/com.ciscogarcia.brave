@@ -1,0 +1,29 @@
+name: Release .plasmoid
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build .plasmoid package
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          PKGNAME="com.ciscogarcia.brave"
+          zip -r "${PKGNAME}-${VERSION}.plasmoid" \
+            metadata.json metadata.desktop contents LICENSE README.md
+          echo "PLASMOID=${PKGNAME}-${VERSION}.plasmoid" >> "$GITHUB_ENV"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.PLASMOID }}
+          generate_release_notes: true
