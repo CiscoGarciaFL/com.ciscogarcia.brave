@@ -34,104 +34,109 @@ Item {
             value: !plasmoid.configuration.pin
         }
 
-        // ── Toolbar ─────────────────────────────────────────────────────────
+        // ── Row 1: Navigation buttons ────────────────────────────────────────
         PlasmaExtras.PlasmoidHeading {
             Layout.fillWidth: true
 
-            RowLayout {
+            ColumnLayout {
                 anchors.fill: parent
                 spacing: Kirigami.Units.smallSpacing
 
-                PlasmaComponents.ToolButton {
-                    icon.name: "go-previous"
-                    enabled: webView.canGoBack
-                    display: PlasmaComponents.ToolButton.IconOnly
-                    PlasmaComponents.ToolTip.text: i18n("Back")
-                    PlasmaComponents.ToolTip.delay: Kirigami.Units.toolTipDelay
-                    PlasmaComponents.ToolTip.visible: hovered
-                    onClicked: webView.goBack()
-                }
-
-                PlasmaComponents.ToolButton {
-                    icon.name: "go-next"
-                    enabled: webView.canGoForward
-                    display: PlasmaComponents.ToolButton.IconOnly
-                    PlasmaComponents.ToolTip.text: i18n("Forward")
-                    PlasmaComponents.ToolTip.delay: Kirigami.Units.toolTipDelay
-                    PlasmaComponents.ToolTip.visible: hovered
-                    onClicked: webView.goForward()
-                }
-
-                PlasmaComponents.ToolButton {
-                    icon.name: "go-home"
-                    display: PlasmaComponents.ToolButton.IconOnly
-                    PlasmaComponents.ToolTip.text: i18n("Home")
-                    PlasmaComponents.ToolTip.delay: Kirigami.Units.toolTipDelay
-                    PlasmaComponents.ToolTip.visible: hovered
-                    onClicked: webView.url = plasmoid.configuration.homePage
-                }
-
-                // Address bar — visibility toggled from General config
-                PlasmaComponents.TextField {
-                    id: urlBar
-                    visible: plasmoid.configuration.showUrlBar
+                RowLayout {
                     Layout.fillWidth: true
-                    placeholderText: i18n("Enter URL…")
-                    text: webView.url
+                    spacing: Kirigami.Units.smallSpacing
 
-                    onAccepted: {
-                        var raw = text.trim()
-                        if (raw.length === 0) return
-                        if (!raw.startsWith("http://") && !raw.startsWith("https://") && !raw.startsWith("file://")) {
-                            raw = "https://" + raw
+                    PlasmaComponents.ToolButton {
+                        icon.name: "go-previous"
+                        enabled: webView.canGoBack
+                        display: PlasmaComponents.ToolButton.IconOnly
+                        PlasmaComponents.ToolTip.text: i18n("Back")
+                        PlasmaComponents.ToolTip.delay: Kirigami.Units.toolTipDelay
+                        PlasmaComponents.ToolTip.visible: hovered
+                        onClicked: webView.goBack()
+                    }
+
+                    PlasmaComponents.ToolButton {
+                        icon.name: "go-next"
+                        enabled: webView.canGoForward
+                        display: PlasmaComponents.ToolButton.IconOnly
+                        PlasmaComponents.ToolTip.text: i18n("Forward")
+                        PlasmaComponents.ToolTip.delay: Kirigami.Units.toolTipDelay
+                        PlasmaComponents.ToolTip.visible: hovered
+                        onClicked: webView.goForward()
+                    }
+
+                    PlasmaComponents.ToolButton {
+                        icon.name: "go-home"
+                        display: PlasmaComponents.ToolButton.IconOnly
+                        PlasmaComponents.ToolTip.text: i18n("Home")
+                        PlasmaComponents.ToolTip.delay: Kirigami.Units.toolTipDelay
+                        PlasmaComponents.ToolTip.visible: hovered
+                        onClicked: webView.url = plasmoid.configuration.homePage
+                    }
+
+                    Item { Layout.fillWidth: true }
+
+                    // Reload / Stop
+                    PlasmaComponents.ToolButton {
+                        icon.name: webView.loading ? "process-stop" : "view-refresh"
+                        display: PlasmaComponents.ToolButton.IconOnly
+                        PlasmaComponents.ToolTip.text: webView.loading ? i18n("Stop") : i18n("Reload")
+                        PlasmaComponents.ToolTip.delay: Kirigami.Units.toolTipDelay
+                        PlasmaComponents.ToolTip.visible: hovered
+                        onClicked: webView.loading ? webView.stop() : webView.reload()
+                    }
+
+                    // Developer inspector toggle
+                    PlasmaComponents.ToolButton {
+                        icon.name: "format-text-code"
+                        checkable: true
+                        checked: inspector.enabled
+                        visible: Qt.application.arguments[0] === "plasmoidviewer" || plasmoid.configuration.debugConsole
+                        enabled: visible
+                        display: PlasmaComponents.ToolButton.IconOnly
+                        PlasmaComponents.ToolTip.text: i18n("Developer Tools")
+                        PlasmaComponents.ToolTip.delay: Kirigami.Units.toolTipDelay
+                        PlasmaComponents.ToolTip.visible: hovered
+                        onToggled: {
+                            inspector.visible = !inspector.visible
+                            inspector.enabled = inspector.visible
                         }
-                        webView.url = raw
+                    }
+
+                    // Pin / keep-open toggle
+                    PlasmaComponents.ToolButton {
+                        icon.name: "window-pin"
+                        checkable: true
+                        checked: plasmoid.configuration.pin
+                        display: PlasmaComponents.ToolButton.IconOnly
+                        PlasmaComponents.ToolTip.text: i18n("Keep Open")
+                        PlasmaComponents.ToolTip.delay: Kirigami.Units.toolTipDelay
+                        PlasmaComponents.ToolTip.visible: hovered
+                        onToggled: plasmoid.configuration.pin = checked
                     }
                 }
 
-                // Spacer when URL bar is hidden
-                Item {
-                    visible: !plasmoid.configuration.showUrlBar
+                // ── Row 2: Address bar ───────────────────────────────────────
+                RowLayout {
                     Layout.fillWidth: true
-                }
+                    spacing: Kirigami.Units.smallSpacing
 
-                // Reload / Stop (icon switches based on load state)
-                PlasmaComponents.ToolButton {
-                    icon.name: webView.loading ? "process-stop" : "view-refresh"
-                    display: PlasmaComponents.ToolButton.IconOnly
-                    PlasmaComponents.ToolTip.text: webView.loading ? i18n("Stop") : i18n("Reload")
-                    PlasmaComponents.ToolTip.delay: Kirigami.Units.toolTipDelay
-                    PlasmaComponents.ToolTip.visible: hovered
-                    onClicked: webView.loading ? webView.stop() : webView.reload()
-                }
+                    PlasmaComponents.TextField {
+                        id: urlBar
+                        Layout.fillWidth: true
+                        placeholderText: i18n("Enter URL…")
+                        text: webView.url
 
-                // Developer inspector toggle
-                PlasmaComponents.ToolButton {
-                    icon.name: "format-text-code"
-                    checkable: true
-                    checked: inspector.enabled
-                    visible: Qt.application.arguments[0] === "plasmoidviewer" || plasmoid.configuration.debugConsole
-                    enabled: visible
-                    display: PlasmaComponents.ToolButton.IconOnly
-                    PlasmaComponents.ToolTip.text: i18n("Developer Tools")
-                    PlasmaComponents.ToolTip.delay: Kirigami.Units.toolTipDelay
-                    PlasmaComponents.ToolTip.visible: hovered
-                    onToggled: {
-                        inspector.visible = !inspector.visible
-                        inspector.enabled = inspector.visible
+                        onAccepted: {
+                            var raw = text.trim()
+                            if (raw.length === 0) return
+                            if (!raw.startsWith("http://") && !raw.startsWith("https://") && !raw.startsWith("file://")) {
+                                raw = "https://" + raw
+                            }
+                            webView.url = raw
+                        }
                     }
-                }
-
-                // Pin / keep-open toggle
-                PlasmaComponents.ToolButton {
-                    icon.name: "window-pin"
-                    checkable: true
-                    checked: plasmoid.configuration.pin
-                    display: PlasmaComponents.ToolButton.IconOnly
-                    PlasmaComponents.ToolTip.text: i18n("Keep Open")
-                    PlasmaComponents.ToolTip.delay: Kirigami.Units.toolTipDelay
-                    PlasmaComponents.ToolTip.visible: hovered
-                    onToggled: plasmoid.configuration.pin = checked
                 }
             }
         }
@@ -153,12 +158,7 @@ Item {
 
             settings.javascriptCanAccessClipboard: plasmoid.configuration.allowClipboardAccess
 
-            // Keep address bar in sync with current page URL
-            onUrlChanged: {
-                if (urlBar.visible) {
-                    urlBar.text = webView.url
-                }
-            }
+            onUrlChanged: urlBar.text = webView.url
         }
 
         // ── Developer Inspector ──────────────────────────────────────────────

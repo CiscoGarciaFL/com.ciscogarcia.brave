@@ -7,14 +7,13 @@ Kirigami.FormLayout {
     id: page
 
     property alias cfg_homePage: homePageField.text
-    property alias cfg_showUrlBar: showUrlBar.checked
     property alias cfg_allowClipboardAccess: allowClipboardAccess.checked
     property alias cfg_pin: pinByDefault.checked
 
     QQC2.TextField {
         id: homePageField
         Kirigami.FormData.label: i18n("Home Page URL:")
-        placeholderText: "https://search.brave.com/"
+        placeholderText: "https://kde.org"
         Layout.fillWidth: true
     }
     QQC2.Label {
@@ -24,11 +23,6 @@ Kirigami.FormLayout {
     }
 
     Item { height: Kirigami.Units.largeSpacing }
-
-    QQC2.CheckBox {
-        id: showUrlBar
-        text: i18n("Show address bar")
-    }
 
     QQC2.CheckBox {
         id: allowClipboardAccess

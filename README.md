@@ -1,12 +1,13 @@
-# Brave Browser — KDE Plasma Widget
+# Brave Widget Browser — KDE Plasma Widget
 
-A KDE Plasma widget that embeds a full Chromium-based browser (via Qt WebEngine) with a configurable home page.
+A KDE Plasma widget that embeds a full Chromium-based browser (via Qt WebEngine) with a
+dedicated address bar and a configurable home page.
 
 ## Features
 
+- Dedicated always-visible address bar (type a URL and press Enter to navigate)
 - Configurable home page URL (defaults to `https://kde.org`)
 - Navigation toolbar: Back, Forward, Home, Reload/Stop
-- Optional address bar (toggle in settings)
 - Persistent cookies and disk cache (stays logged in across sessions)
 - Pin toggle to keep the widget open after losing focus
 - Developer console / WebEngine inspector
@@ -17,7 +18,7 @@ A KDE Plasma widget that embeds a full Chromium-based browser (via Qt WebEngine)
 
 1. Right-click your desktop or panel → **Add Widgets…**
 2. Click **Get New Widgets** → **Download New Plasma Widgets**
-3. Search for **Brave Browser** and install.
+3. Search for **Brave Widget Browser** and install.
 
 ### From release `.plasmoid` file
 
@@ -50,15 +51,28 @@ Right-click the widget → **Configure…**
 | Setting | Description |
 |---------|-------------|
 | Home Page URL | URL loaded on start and when Home is pressed |
-| Show address bar | Toggle the URL bar in the toolbar |
 | Allow clipboard access | Let pages read/write the system clipboard |
 | Pin widget open | Keep it visible after losing focus |
-| Developer console | Show the WebEngine inspector toggle |
+| Developer console | Show the WebEngine inspector toggle (Advanced tab) |
 
 ## Contributing
 
 Pull requests are welcome — please open a PR against `main`.
 Direct pushes to `main` are disabled; all changes go through PRs.
+
+## Changelog
+
+### v1.1.0
+- Renamed product to **Brave Widget Browser**
+- Address bar promoted to its own dedicated row — always visible, no longer a toggle
+- Default home page changed to `https://kde.org`
+- Removed "Show address bar" config option (no longer needed)
+
+### v1.0.1
+- Default home page changed to `https://kde.org`
+
+### v1.0.0
+- Initial release
 
 ## License
 

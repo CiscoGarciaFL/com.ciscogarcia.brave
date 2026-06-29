@@ -9,10 +9,6 @@
             <label>URL loaded on startup and when the Home button is pressed.</label>
             <default>https://kde.org</default>
         </entry>
-        <entry name="showUrlBar" type="Bool">
-            <label>Show the address/URL bar in the toolbar.</label>
-            <default>true</default>
-        </entry>
         <entry name="allowClipboardAccess" type="Bool">
             <label>Allow web pages to read/write the system clipboard.</label>
             <default>true</default>

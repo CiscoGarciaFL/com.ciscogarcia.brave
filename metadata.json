@@ -11,11 +11,11 @@
         "Icon": "brave-browser",
         "Id": "com.ciscogarcia.brave",
         "License": "GPL-3.0-or-later",
-        "Name": "Brave Browser",
+        "Name": "Brave Widget Browser",
         "ServiceTypes": [
             "Plasma/Applet"
         ],
-        "Version": "1.0.1",
+        "Version": "1.1.0",
         "Website": "https://github.com/CiscoGarciaFL/com.ciscogarcia.brave"
     },
     "X-Plasma-API": "declarativeappletscript",
