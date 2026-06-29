@@ -67,6 +67,9 @@ Direct pushes to `main` are disabled; all changes go through PRs.
 
 ## Changelog
 
+### v1.2.1
+- Switched license from GPL-3.0 to **Apache 2.0** (permissive with attribution + patent grant)
+
 ### v1.2.0
 - **Bookmarks / Links** — bookmark star next to the address bar saves the current page; collapsible sidebar lists all saved bookmarks
 - **Links config tab** — add bookmarks by name + URL, delete individually, from Configure → Links
@@ -86,4 +89,4 @@ Direct pushes to `main` are disabled; all changes go through PRs.
 
 ## License
 
-GPL-3.0-or-later © CiscoGarciaFL
+Apache-2.0 © CiscoGarciaFL

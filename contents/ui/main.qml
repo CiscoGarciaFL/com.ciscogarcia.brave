@@ -1,6 +1,6 @@
 /*
  * SPDX-FileCopyrightText: 2024 CiscoGarciaFL <me@ciscogarcia.com>
- * SPDX-License-Identifier: GPL-3.0-or-later
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 import QtQuick 2.3
