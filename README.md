@@ -67,6 +67,9 @@ Direct pushes to `main` are disabled; all changes go through PRs.
 
 ## Changelog
 
+### v1.2.2
+- Logo updated: official Brave lion composited inside a KDE Plasma Breeze-style widget frame
+
 ### v1.2.1
 - Switched license from GPL-3.0 to **Apache 2.0** (permissive with attribution + patent grant)
 

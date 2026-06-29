@@ -15,7 +15,7 @@
         "ServiceTypes": [
             "Plasma/Applet"
         ],
-        "Version": "1.2.1",
+        "Version": "1.2.2",
         "Website": "https://github.com/CiscoGarciaFL/com.ciscogarcia.brave"
     },
     "X-Plasma-API": "declarativeappletscript",
