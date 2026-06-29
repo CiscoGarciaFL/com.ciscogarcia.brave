@@ -29,5 +29,13 @@
             <label>Show the WebEngine developer console toggle in the toolbar.</label>
             <default>false</default>
         </entry>
+        <entry name="userAgent" type="String">
+            <label>User-Agent string sent to web pages. Spoof Edge/Chrome so sites like Teams accept the browser.</label>
+            <default>Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0</default>
+        </entry>
+        <entry name="grantMediaPermissions" type="Bool">
+            <label>Auto-grant camera, microphone, screen-share and notification permissions (required for Teams calls).</label>
+            <default>true</default>
+        </entry>
     </group>
 </kcfg>

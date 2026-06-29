@@ -67,6 +67,13 @@ Direct pushes to `main` are disabled; all changes go through PRs.
 
 ## Changelog
 
+### v1.3.0
+- **User-Agent spoofing** — defaults to Microsoft Edge on Linux so sites like Teams, Office 365, and other Microsoft/enterprise apps accept the browser
+- **Auto-grant permissions** — camera, microphone, screen-share and notifications granted automatically (toggle in Advanced settings)
+- **Screen capture enabled** — allows screen sharing in calls
+- **WebRTC** — all network interfaces available for best call connectivity
+- User-Agent and permission grant are both configurable in **Configure → Advanced**
+
 ### v1.2.2
 - Logo updated: official Brave lion composited inside a KDE Plasma Breeze-style widget frame
 

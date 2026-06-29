@@ -322,9 +322,21 @@ Item {
                     offTheRecord: false
                     httpCacheType: WebEngineProfile.DiskHttpCache
                     persistentCookiesPolicy: WebEngineProfile.ForcePersistentCookies
+                    httpUserAgent: plasmoid.configuration.userAgent
                 }
 
+                // Core settings
                 settings.javascriptCanAccessClipboard: plasmoid.configuration.allowClipboardAccess
+                settings.screenCaptureEnabled:         true
+                settings.pluginsEnabled:               true
+                settings.webRTCPublicInterfacesOnly:   false
+
+                // Auto-grant camera / mic / screen-share / notifications when enabled
+                onFeaturePermissionRequested: function(securityOrigin, feature) {
+                    if (plasmoid.configuration.grantMediaPermissions) {
+                        grantFeaturePermission(securityOrigin, feature, true)
+                    }
+                }
 
                 onUrlChanged: {
                     if (plasmoid.configuration.showUrlBar)
