@@ -4,7 +4,7 @@ A KDE Plasma widget that embeds a full Chromium-based browser (via Qt WebEngine)
 
 ## Features
 
-- Configurable home page URL (defaults to `https://search.brave.com/`)
+- Configurable home page URL (defaults to `https://kde.org`)
 - Navigation toolbar: Back, Forward, Home, Reload/Stop
 - Optional address bar (toggle in settings)
 - Persistent cookies and disk cache (stays logged in across sessions)

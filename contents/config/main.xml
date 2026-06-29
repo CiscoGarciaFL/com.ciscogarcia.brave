@@ -7,7 +7,7 @@
     <group name="General">
         <entry name="homePage" type="String">
             <label>URL loaded on startup and when the Home button is pressed.</label>
-            <default>https://search.brave.com/</default>
+            <default>https://kde.org</default>
         </entry>
         <entry name="showUrlBar" type="Bool">
             <label>Show the address/URL bar in the toolbar.</label>
