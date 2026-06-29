@@ -5,15 +5,17 @@ dedicated address bar and a configurable home page.
 
 ## Features
 
-- Configurable home page URL (defaults to `https://kde.org`)
-- Navigation toolbar: Back, Forward, Home, Bookmarks toggle, Reload/Stop
-- Address bar with **bookmark star** — click to save or remove the current page
-- **Bookmarks sidebar** — collapsible panel listing all saved links; click any to navigate
-- Manage bookmarks from **Configure → Links** (add by name + URL, delete individually)
-- Optional address bar (on by default, can be hidden in General settings)
-- Persistent cookies and disk cache (stays logged in across sessions)
+- Launches any web app in **Brave app mode** — no tabs, no address bar, looks like a native app
+- Configurable App URL (defaults to `https://teams.microsoft.com`)
+- **Status indicator** — green dot when running, grey when stopped (on panel icon and full widget)
+- **Launch / Focus / Close** controls — one click to open, bring to front, or kill the app
+- **Quick Links** — saved URLs that each open their own Brave app window
+- Manage Quick Links from **Configure → Links**
 - Pin toggle to keep the widget open after losing focus
-- Developer console / WebEngine inspector
+
+> **Why Brave app mode?** Embedded browser engines (QtWebEngine) use Chromium 87 which Microsoft
+> Teams and other modern web apps no longer support. Brave ships a current Chromium and passes
+> all site compatibility checks that embedded engines fail.
 
 ## Installation
 
@@ -53,12 +55,10 @@ Right-click the widget → **Configure…**
 
 | Setting | Tab | Description |
 |---------|-----|-------------|
-| Home Page URL | General | URL loaded on start and when Home is pressed |
-| Show address bar | General | Toggle the URL bar and bookmark star |
-| Allow clipboard access | General | Let pages read/write the system clipboard |
-| Pin widget open | General | Keep it visible after losing focus |
-| Add / remove bookmarks | Links | Manage saved links by name and URL |
-| Developer console | Advanced | Show the WebEngine inspector toggle |
+| App URL | General | URL opened in Brave app mode |
+| Pin widget open | General | Keep the widget visible after losing focus |
+| Add / remove quick links | Links | Saved URLs, each opens its own Brave app window |
+| Brave executable | Advanced | Command/path to Brave (`brave-browser`, `brave`, etc.) |
 
 ## Contributing
 
@@ -66,6 +66,15 @@ Pull requests are welcome — please open a PR against `main`.
 Direct pushes to `main` are disabled; all changes go through PRs.
 
 ## Changelog
+
+### v2.0.0
+- **Complete rewrite** — replaced embedded QtWebEngine with a Brave app-mode launcher
+- Fixes Teams, Outlook, and other modern web apps that require a current Chromium version
+- Panel icon shows a live status dot (green = running, grey = stopped)
+- Click panel icon when running → focuses the Brave window; when stopped → opens widget
+- Launch, Focus Window, and Close controls in the full widget view
+- Quick Links panel: each saved link opens its own Brave app window
+- Simplified config: App URL (General), Quick Links (Links), Brave path (Advanced)
 
 ### v1.3.0
 - **User-Agent spoofing** — defaults to Microsoft Edge on Linux so sites like Teams, Office 365, and other Microsoft/enterprise apps accept the browser

@@ -6,45 +6,19 @@ import org.kde.kirigami 2.4 as Kirigami
 Kirigami.FormLayout {
     id: page
 
-    property alias cfg_homePage: homePageField.text
-    property alias cfg_showUrlBar: showUrlBar.checked
-    property alias cfg_allowClipboardAccess: allowClipboardAccess.checked
+    property alias cfg_homePage: appUrlField.text
     property alias cfg_pin: pinByDefault.checked
 
     QQC2.TextField {
-        id: homePageField
-        Kirigami.FormData.label: i18n("Home Page URL:")
-        placeholderText: "https://kde.org"
+        id: appUrlField
+        Kirigami.FormData.label: i18n("App URL:")
+        placeholderText: "https://teams.microsoft.com"
         Layout.fillWidth: true
     }
     QQC2.Label {
         font.pixelSize: 11
         font.italic: true
-        text: i18n("This URL loads on widget startup and when you press the Home button.")
-    }
-
-    Item { height: Kirigami.Units.largeSpacing }
-
-    QQC2.CheckBox {
-        id: showUrlBar
-        text: i18n("Show address bar")
-    }
-    QQC2.Label {
-        font.pixelSize: 11
-        font.italic: true
-        text: i18n("Displays the URL bar and bookmark star below the navigation buttons.")
-    }
-
-    Item { height: Kirigami.Units.largeSpacing }
-
-    QQC2.CheckBox {
-        id: allowClipboardAccess
-        text: i18n("Allow clipboard access")
-    }
-    QQC2.Label {
-        font.pixelSize: 11
-        font.italic: true
-        text: i18n("Allows web pages to read/write the system clipboard.")
+        text: i18n("Brave opens this URL in app mode (no tabs, no address bar).")
     }
 
     Item { height: Kirigami.Units.largeSpacing }

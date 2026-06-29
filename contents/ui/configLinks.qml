@@ -44,19 +44,24 @@ Kirigami.FormLayout {
         _flush()
     }
 
-    // ── Add a bookmark ────────────────────────────────────────────────────
+    // ── Add a quick link ──────────────────────────────────────────────────
 
     Kirigami.Separator { Layout.fillWidth: true }
 
     QQC2.Label {
         font.bold: true
-        text: i18n("Add Link")
+        text: i18n("Add Quick Link")
+    }
+    QQC2.Label {
+        font.pixelSize: 11
+        font.italic: true
+        text: i18n("Each link opens in Brave app mode (no tabs, no address bar).")
     }
 
     QQC2.TextField {
         id: nameField
         Kirigami.FormData.label: i18n("Name:")
-        placeholderText: i18n("e.g. KDE Homepage")
+        placeholderText: i18n("e.g. Teams Calendar")
         Layout.fillWidth: true
         onAccepted: urlField.forceActiveFocus()
     }
@@ -64,14 +69,14 @@ Kirigami.FormLayout {
     QQC2.TextField {
         id: urlField
         Kirigami.FormData.label: i18n("URL:")
-        placeholderText: "https://kde.org"
+        placeholderText: "https://teams.microsoft.com/_#/calendarv2"
         Layout.fillWidth: true
         onAccepted: page._add()
     }
 
     QQC2.Button {
-        text: i18n("Add to Bookmarks")
-        icon.name: "bookmark-new"
+        text: i18n("Add Link")
+        icon.name: "list-add"
         enabled: nameField.text.trim().length > 0 && urlField.text.trim().length > 0
         onClicked: page._add()
     }
@@ -83,13 +88,13 @@ Kirigami.FormLayout {
 
     QQC2.Label {
         font.bold: true
-        text: i18n("Saved Links")
+        text: i18n("Saved Quick Links")
     }
 
     QQC2.Label {
         visible: _list.length === 0
         font.italic: true
-        text: i18n("No bookmarks yet. Add one above.")
+        text: i18n("No links yet. Add one above.")
     }
 
     Repeater {
@@ -120,7 +125,6 @@ Kirigami.FormLayout {
 
             QQC2.Button {
                 icon.name: "edit-delete-remove"
-                text: i18n("Remove")
                 display: QQC2.AbstractButton.IconOnly
                 onClicked: page._remove(index)
             }

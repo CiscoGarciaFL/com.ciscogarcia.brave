@@ -11,14 +11,15 @@ import org.kde.plasma.components 3.0 as PlasmaComponents
 import org.kde.plasma.plasmoid 2.0
 import org.kde.plasma.extras 2.0 as PlasmaExtras
 import org.kde.kirigami 2.19 as Kirigami
-import QtWebEngine 1.9
 
 Item {
     id: root
 
-    // ── Bookmark state ───────────────────────────────────────────────────────
-    property var  bkList: []
-    property bool bkPanelOpen: false
+    // ── App state ────────────────────────────────────────────────────────
+    property bool appRunning: false
+
+    // ── Quick Links state ────────────────────────────────────────────────
+    property var bkList: []
 
     Component.onCompleted: _bkReload()
 
@@ -38,27 +39,6 @@ Item {
         plasmoid.configuration.bookmarks = JSON.stringify(bkList)
     }
 
-    function isBookmarked(url) {
-        for (var i = 0; i < bkList.length; i++)
-            if (bkList[i].url === url) return true
-        return false
-    }
-
-    function toggleBookmark(title, url) {
-        var list = JSON.parse(JSON.stringify(bkList))
-        for (var i = 0; i < list.length; i++) {
-            if (list[i].url === url) {
-                list.splice(i, 1)
-                bkList = list
-                _bkSave()
-                return
-            }
-        }
-        list.push({ name: (title && title.length > 0) ? title : url, url: url })
-        bkList = list
-        _bkSave()
-    }
-
     function removeBookmarkAt(idx) {
         var list = JSON.parse(JSON.stringify(bkList))
         list.splice(idx, 1)
@@ -66,19 +46,113 @@ Item {
         _bkSave()
     }
 
-    // ────────────────────────────────────────────────────────────────────────
+    // ── Process management ────────────────────────────────────────────────
 
-    Plasmoid.compactRepresentation: CompactRepresentation {}
+    // Fire-and-forget command runner
+    PlasmaCore.DataSource {
+        id: exeSource
+        engine: "executable"
+        connectedSources: []
+        onNewData: disconnectSource(sourceName)
+        function run(cmd) { connectSource(cmd) }
+    }
 
+    // Check-and-report runner — updates appRunning from stdout
+    PlasmaCore.DataSource {
+        id: checkSource
+        engine: "executable"
+        connectedSources: []
+        onNewData: {
+            root.appRunning = data["stdout"].trim().length > 0
+            disconnectSource(sourceName)
+        }
+        function run(cmd) { connectSource(cmd) }
+    }
+
+    // Poll every 3 seconds; grep -v grep avoids self-match
+    Timer {
+        interval: 3000
+        running: true
+        repeat: true
+        triggeredOnStart: true
+        onTriggered: checkSource.run(
+            "ps -eo args 2>/dev/null | grep 'brave-browser.*--app' | grep -v grep | head -1"
+        )
+    }
+
+    function launch() {
+        exeSource.run(
+            plasmoid.configuration.bravePath +
+            " --app=\"" + plasmoid.configuration.homePage + "\" &"
+        )
+    }
+
+    function focusApp() {
+        exeSource.run(
+            "wmctrl -x -a brave-browser 2>/dev/null || " +
+            "xdotool search --class brave-browser windowactivate 2>/dev/null; true"
+        )
+    }
+
+    function closeApp() {
+        exeSource.run("pkill -f 'brave-browser.*--app' 2>/dev/null; true")
+    }
+
+    function launchQuickLink(url) {
+        exeSource.run(
+            plasmoid.configuration.bravePath + " --app=\"" + url + "\" &"
+        )
+    }
+
+    // ── Compact representation ─────────────────────────────────────────────
+    // Defined inline so it can read root.appRunning
+    Plasmoid.compactRepresentation: Item {
+        anchors.fill: parent
+
+        PlasmaCore.SvgItem {
+            id: compactIcon
+            anchors.centerIn: parent
+            width:  Math.min(parent.width, parent.height)
+            height: width
+
+            svg: PlasmaCore.Svg {
+                imagePath: Qt.resolvedUrl("assets/logo.svg")
+            }
+        }
+
+        // Status dot — green = running, grey = stopped
+        Rectangle {
+            anchors.bottom:  compactIcon.bottom
+            anchors.right:   compactIcon.right
+            width:  Math.max(4, Math.round(compactIcon.width * 0.28))
+            height: width
+            radius: width / 2
+            color:  root.appRunning ? "#27ae60" : "#7f8c8d"
+            border.color: theme.backgroundColor
+            border.width: 1
+        }
+
+        MouseArea {
+            anchors.fill: parent
+            onClicked: {
+                if (root.appRunning)
+                    root.focusApp()
+                else
+                    plasmoid.expanded = !plasmoid.expanded
+            }
+        }
+    }
+
+    // ── Full representation ────────────────────────────────────────────────
     Plasmoid.fullRepresentation: ColumnLayout {
         id: fullRep
         anchors.fill: parent
-        spacing: 0
+        spacing: Kirigami.Units.largeSpacing
 
-        Layout.minimumWidth:  320 * PlasmaCore.Units.devicePixelRatio
-        Layout.minimumHeight: 480 * PlasmaCore.Units.devicePixelRatio
-        Layout.preferredWidth:  800 * PlasmaCore.Units.devicePixelRatio
-        Layout.preferredHeight: 600 * PlasmaCore.Units.devicePixelRatio
+        Layout.minimumWidth:  260 * PlasmaCore.Units.devicePixelRatio
+        Layout.minimumHeight: 180 * PlasmaCore.Units.devicePixelRatio
+        Layout.preferredWidth:  340 * PlasmaCore.Units.devicePixelRatio
+        Layout.preferredHeight: 420 * PlasmaCore.Units.devicePixelRatio
 
         Binding {
             target: plasmoid
@@ -86,273 +160,159 @@ Item {
             value: !plasmoid.configuration.pin
         }
 
-        // ── Toolbar ──────────────────────────────────────────────────────────
+        // ── Header ──────────────────────────────────────────────────────
         PlasmaExtras.PlasmoidHeading {
             Layout.fillWidth: true
 
-            ColumnLayout {
+            RowLayout {
                 anchors.fill: parent
                 spacing: Kirigami.Units.smallSpacing
 
-                // Row 1 — navigation buttons
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: Kirigami.Units.smallSpacing
-
-                    PlasmaComponents.ToolButton {
-                        icon.name: "go-previous"
-                        enabled: webView.canGoBack
-                        display: PlasmaComponents.ToolButton.IconOnly
-                        PlasmaComponents.ToolTip.text: i18n("Back")
-                        PlasmaComponents.ToolTip.delay: Kirigami.Units.toolTipDelay
-                        PlasmaComponents.ToolTip.visible: hovered
-                        onClicked: webView.goBack()
-                    }
-
-                    PlasmaComponents.ToolButton {
-                        icon.name: "go-next"
-                        enabled: webView.canGoForward
-                        display: PlasmaComponents.ToolButton.IconOnly
-                        PlasmaComponents.ToolTip.text: i18n("Forward")
-                        PlasmaComponents.ToolTip.delay: Kirigami.Units.toolTipDelay
-                        PlasmaComponents.ToolTip.visible: hovered
-                        onClicked: webView.goForward()
-                    }
-
-                    PlasmaComponents.ToolButton {
-                        icon.name: "go-home"
-                        display: PlasmaComponents.ToolButton.IconOnly
-                        PlasmaComponents.ToolTip.text: i18n("Home")
-                        PlasmaComponents.ToolTip.delay: Kirigami.Units.toolTipDelay
-                        PlasmaComponents.ToolTip.visible: hovered
-                        onClicked: webView.url = plasmoid.configuration.homePage
-                    }
-
-                    // Bookmarks panel toggle
-                    PlasmaComponents.ToolButton {
-                        icon.name: "bookmarks-organize"
-                        checkable: true
-                        checked: root.bkPanelOpen
-                        display: PlasmaComponents.ToolButton.IconOnly
-                        PlasmaComponents.ToolTip.text: i18n("Bookmarks")
-                        PlasmaComponents.ToolTip.delay: Kirigami.Units.toolTipDelay
-                        PlasmaComponents.ToolTip.visible: hovered
-                        onToggled: root.bkPanelOpen = checked
-                    }
-
-                    Item { Layout.fillWidth: true }
-
-                    // Reload / Stop
-                    PlasmaComponents.ToolButton {
-                        icon.name: webView.loading ? "process-stop" : "view-refresh"
-                        display: PlasmaComponents.ToolButton.IconOnly
-                        PlasmaComponents.ToolTip.text: webView.loading ? i18n("Stop") : i18n("Reload")
-                        PlasmaComponents.ToolTip.delay: Kirigami.Units.toolTipDelay
-                        PlasmaComponents.ToolTip.visible: hovered
-                        onClicked: webView.loading ? webView.stop() : webView.reload()
-                    }
-
-                    // Developer inspector toggle
-                    PlasmaComponents.ToolButton {
-                        icon.name: "format-text-code"
-                        checkable: true
-                        checked: inspector.enabled
-                        visible: Qt.application.arguments[0] === "plasmoidviewer" || plasmoid.configuration.debugConsole
-                        enabled: visible
-                        display: PlasmaComponents.ToolButton.IconOnly
-                        PlasmaComponents.ToolTip.text: i18n("Developer Tools")
-                        PlasmaComponents.ToolTip.delay: Kirigami.Units.toolTipDelay
-                        PlasmaComponents.ToolTip.visible: hovered
-                        onToggled: {
-                            inspector.visible = !inspector.visible
-                            inspector.enabled = inspector.visible
-                        }
-                    }
-
-                    // Pin / keep-open toggle
-                    PlasmaComponents.ToolButton {
-                        icon.name: "window-pin"
-                        checkable: true
-                        checked: plasmoid.configuration.pin
-                        display: PlasmaComponents.ToolButton.IconOnly
-                        PlasmaComponents.ToolTip.text: i18n("Keep Open")
-                        PlasmaComponents.ToolTip.delay: Kirigami.Units.toolTipDelay
-                        PlasmaComponents.ToolTip.visible: hovered
-                        onToggled: plasmoid.configuration.pin = checked
-                    }
+                PlasmaCore.SvgItem {
+                    width:  Kirigami.Units.iconSizes.medium
+                    height: width
+                    svg: PlasmaCore.Svg { imagePath: Qt.resolvedUrl("assets/logo.svg") }
                 }
 
-                // Row 2 — address bar (visible when showUrlBar is enabled)
-                RowLayout {
+                PlasmaComponents.Label {
                     Layout.fillWidth: true
-                    spacing: Kirigami.Units.smallSpacing
-                    visible: plasmoid.configuration.showUrlBar
+                    text: "Brave Widget Browser"
+                    font.bold: true
+                }
 
-                    PlasmaComponents.TextField {
-                        id: urlBar
-                        Layout.fillWidth: true
-                        placeholderText: i18n("Enter URL…")
-                        text: webView.url
-
-                        onAccepted: {
-                            var raw = text.trim()
-                            if (raw.length === 0) return
-                            if (!raw.startsWith("http://") && !raw.startsWith("https://") && !raw.startsWith("file://"))
-                                raw = "https://" + raw
-                            webView.url = raw
-                        }
-                    }
-
-                    // Star — adds/removes current page from bookmarks
-                    PlasmaComponents.ToolButton {
-                        icon.name: root.isBookmarked(webView.url) ? "bookmarks" : "bookmark-new"
-                        display: PlasmaComponents.ToolButton.IconOnly
-                        PlasmaComponents.ToolTip.text: root.isBookmarked(webView.url) ? i18n("Remove Bookmark") : i18n("Add Bookmark")
-                        PlasmaComponents.ToolTip.delay: Kirigami.Units.toolTipDelay
-                        PlasmaComponents.ToolTip.visible: hovered
-                        onClicked: root.toggleBookmark(webView.title, webView.url)
-                    }
+                PlasmaComponents.ToolButton {
+                    icon.name: "window-pin"
+                    checkable: true
+                    checked: plasmoid.configuration.pin
+                    display: PlasmaComponents.ToolButton.IconOnly
+                    PlasmaComponents.ToolTip.text: i18n("Keep Open")
+                    PlasmaComponents.ToolTip.delay: Kirigami.Units.toolTipDelay
+                    PlasmaComponents.ToolTip.visible: hovered
+                    onToggled: plasmoid.configuration.pin = checked
                 }
             }
         }
 
-        // ── Main content: bookmarks sidebar + webview ─────────────────────────
-        RowLayout {
+        // ── Status ───────────────────────────────────────────────────────
+        ColumnLayout {
             Layout.fillWidth: true
-            Layout.fillHeight: true
-            spacing: 0
+            spacing: Kirigami.Units.smallSpacing
 
-            // Bookmarks sidebar
-            Rectangle {
-                id: bkSidebar
-                visible: root.bkPanelOpen
-                width: visible ? Math.round(180 * PlasmaCore.Units.devicePixelRatio) : 0
-                Layout.fillHeight: true
-                color: theme.backgroundColor
+            RowLayout {
+                Layout.alignment: Qt.AlignHCenter
+                spacing: Kirigami.Units.smallSpacing
 
-                ColumnLayout {
-                    anchors.fill: parent
+                Rectangle {
+                    width:  Kirigami.Units.gridUnit * 0.55
+                    height: width
+                    radius: width / 2
+                    color:  root.appRunning ? "#27ae60" : "#7f8c8d"
+                }
+
+                PlasmaComponents.Label {
+                    text:  root.appRunning ? i18n("Running") : i18n("Not running")
+                    color: root.appRunning
+                        ? Kirigami.Theme.positiveTextColor
+                        : Kirigami.Theme.disabledTextColor
+                }
+            }
+
+            PlasmaComponents.Label {
+                Layout.fillWidth: true
+                text: plasmoid.configuration.homePage
+                elide: Text.ElideMiddle
+                horizontalAlignment: Text.AlignHCenter
+                font.pixelSize: 11
+                opacity: 0.65
+            }
+        }
+
+        // ── Controls ─────────────────────────────────────────────────────
+        ColumnLayout {
+            Layout.fillWidth: true
+            spacing: Kirigami.Units.smallSpacing
+
+            PlasmaComponents.Button {
+                Layout.fillWidth: true
+                visible: !root.appRunning
+                text: i18n("Launch in Brave")
+                icon.name: "media-playback-start"
+                onClicked: root.launch()
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                visible: root.appRunning
+                spacing: Kirigami.Units.smallSpacing
+
+                PlasmaComponents.Button {
+                    Layout.fillWidth: true
+                    text: i18n("Focus Window")
+                    icon.name: "window-restore"
+                    onClicked: root.focusApp()
+                }
+
+                PlasmaComponents.Button {
+                    text: i18n("Close")
+                    icon.name: "media-playback-stop"
+                    onClicked: root.closeApp()
+                }
+            }
+        }
+
+        // ── Quick Links ───────────────────────────────────────────────────
+        ColumnLayout {
+            Layout.fillWidth: true
+            visible: root.bkList.length > 0
+            spacing: Kirigami.Units.smallSpacing
+
+            PlasmaCore.SvgItem {
+                Layout.fillWidth: true
+                height: 1
+                svg: PlasmaCore.Svg { imagePath: "widgets/line" }
+                elementId: "horizontal-line"
+            }
+
+            PlasmaComponents.Label {
+                text: i18n("Quick Links")
+                font.bold: true
+            }
+
+            Repeater {
+                model: root.bkList
+
+                delegate: RowLayout {
+                    Layout.fillWidth: true
                     spacing: 0
 
-                    // Sidebar header
-                    Rectangle {
+                    PlasmaComponents.ToolButton {
                         Layout.fillWidth: true
-                        height: Math.round(Kirigami.Units.gridUnit * 1.6)
-                        color: theme.highlightColor
+                        display: PlasmaComponents.ToolButton.TextOnly
 
-                        PlasmaComponents.Label {
-                            anchors.centerIn: parent
-                            text: i18n("Bookmarks")
-                            color: theme.highlightedTextColor
-                            font.bold: true
+                        contentItem: PlasmaComponents.Label {
+                            text: modelData.name
+                            elide: Text.ElideRight
+                            horizontalAlignment: Text.AlignLeft
                         }
+
+                        PlasmaComponents.ToolTip.text: modelData.url
+                        PlasmaComponents.ToolTip.delay: Kirigami.Units.toolTipDelay
+                        PlasmaComponents.ToolTip.visible: hovered
+                        onClicked: root.launchQuickLink(modelData.url)
                     }
 
-                    // Bookmark list
-                    Flickable {
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-                        clip: true
-                        contentHeight: bkColumn.implicitHeight
-                        ScrollBar.vertical: ScrollBar {}
-
-                        Column {
-                            id: bkColumn
-                            width: bkSidebar.width
-                            spacing: 0
-
-                            Repeater {
-                                model: root.bkList
-
-                                delegate: RowLayout {
-                                    width: bkSidebar.width
-                                    spacing: 0
-
-                                    PlasmaComponents.ToolButton {
-                                        Layout.fillWidth: true
-                                        text: modelData.name
-                                        display: PlasmaComponents.ToolButton.TextOnly
-
-                                        contentItem: PlasmaComponents.Label {
-                                            text: modelData.name
-                                            elide: Text.ElideRight
-                                            horizontalAlignment: Text.AlignLeft
-                                        }
-
-                                        PlasmaComponents.ToolTip.text: modelData.url
-                                        PlasmaComponents.ToolTip.delay: Kirigami.Units.toolTipDelay
-                                        PlasmaComponents.ToolTip.visible: hovered
-                                        onClicked: webView.url = modelData.url
-                                    }
-
-                                    PlasmaComponents.ToolButton {
-                                        icon.name: "edit-delete-remove"
-                                        display: PlasmaComponents.ToolButton.IconOnly
-                                        PlasmaComponents.ToolTip.text: i18n("Remove")
-                                        PlasmaComponents.ToolTip.delay: Kirigami.Units.toolTipDelay
-                                        PlasmaComponents.ToolTip.visible: hovered
-                                        onClicked: root.removeBookmarkAt(index)
-                                    }
-                                }
-                            }
-                        }
+                    PlasmaComponents.ToolButton {
+                        icon.name: "edit-delete-remove"
+                        display: PlasmaComponents.ToolButton.IconOnly
+                        PlasmaComponents.ToolTip.text: i18n("Remove")
+                        PlasmaComponents.ToolTip.delay: Kirigami.Units.toolTipDelay
+                        PlasmaComponents.ToolTip.visible: hovered
+                        onClicked: root.removeBookmarkAt(index)
                     }
-                }
-            }
-
-            // Thin divider between sidebar and webview
-            Rectangle {
-                visible: root.bkPanelOpen
-                width: 1
-                Layout.fillHeight: true
-                color: theme.textColor
-                opacity: 0.15
-            }
-
-            // Main WebView
-            WebEngineView {
-                id: webView
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                focus: true
-                url: plasmoid.configuration.homePage
-
-                profile: WebEngineProfile {
-                    storageName: "BraveWidget"
-                    offTheRecord: false
-                    httpCacheType: WebEngineProfile.DiskHttpCache
-                    persistentCookiesPolicy: WebEngineProfile.ForcePersistentCookies
-                    httpUserAgent: plasmoid.configuration.userAgent
-                }
-
-                // Core settings
-                settings.javascriptCanAccessClipboard: plasmoid.configuration.allowClipboardAccess
-                settings.screenCaptureEnabled:         true
-                settings.pluginsEnabled:               true
-                settings.webRTCPublicInterfacesOnly:   false
-
-                // Auto-grant camera / mic / screen-share / notifications when enabled
-                onFeaturePermissionRequested: function(securityOrigin, feature) {
-                    if (plasmoid.configuration.grantMediaPermissions) {
-                        grantFeaturePermission(securityOrigin, feature, true)
-                    }
-                }
-
-                onUrlChanged: {
-                    if (plasmoid.configuration.showUrlBar)
-                        urlBar.text = webView.url
                 }
             }
         }
 
-        // ── Developer Inspector ───────────────────────────────────────────────
-        WebEngineView {
-            id: inspector
-            enabled: false
-            visible: false
-            Layout.fillWidth: true
-            height: fullRep.height / 3
-            inspectedView: enabled ? webView : null
-        }
+        Item { Layout.fillHeight: true }
     }
 }
