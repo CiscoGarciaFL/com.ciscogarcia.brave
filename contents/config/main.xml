@@ -9,6 +9,14 @@
             <label>URL loaded on startup and when the Home button is pressed.</label>
             <default>https://kde.org</default>
         </entry>
+        <entry name="showUrlBar" type="Bool">
+            <label>Show the address bar below the navigation buttons.</label>
+            <default>true</default>
+        </entry>
+        <entry name="bookmarks" type="String">
+            <label>JSON array of saved bookmark objects {name, url}.</label>
+            <default>[]</default>
+        </entry>
         <entry name="allowClipboardAccess" type="Bool">
             <label>Allow web pages to read/write the system clipboard.</label>
             <default>true</default>

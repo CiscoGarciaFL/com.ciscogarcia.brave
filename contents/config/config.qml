@@ -8,6 +8,11 @@ ConfigModel {
         source: "configGeneral.qml"
     }
     ConfigCategory {
+        name: i18n("Links")
+        icon: "bookmarks-organize"
+        source: "configLinks.qml"
+    }
+    ConfigCategory {
         name: i18n("Advanced")
         icon: "tools"
         source: "configAdvanced.qml"

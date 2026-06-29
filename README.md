@@ -5,9 +5,12 @@ dedicated address bar and a configurable home page.
 
 ## Features
 
-- Dedicated always-visible address bar (type a URL and press Enter to navigate)
 - Configurable home page URL (defaults to `https://kde.org`)
-- Navigation toolbar: Back, Forward, Home, Reload/Stop
+- Navigation toolbar: Back, Forward, Home, Bookmarks toggle, Reload/Stop
+- Address bar with **bookmark star** — click to save or remove the current page
+- **Bookmarks sidebar** — collapsible panel listing all saved links; click any to navigate
+- Manage bookmarks from **Configure → Links** (add by name + URL, delete individually)
+- Optional address bar (on by default, can be hidden in General settings)
 - Persistent cookies and disk cache (stays logged in across sessions)
 - Pin toggle to keep the widget open after losing focus
 - Developer console / WebEngine inspector
@@ -48,12 +51,14 @@ On Arch: `sudo pacman -S qt5-webengine` (Plasma 5) or `qt6-webengine` (Plasma 6)
 
 Right-click the widget → **Configure…**
 
-| Setting | Description |
-|---------|-------------|
-| Home Page URL | URL loaded on start and when Home is pressed |
-| Allow clipboard access | Let pages read/write the system clipboard |
-| Pin widget open | Keep it visible after losing focus |
-| Developer console | Show the WebEngine inspector toggle (Advanced tab) |
+| Setting | Tab | Description |
+|---------|-----|-------------|
+| Home Page URL | General | URL loaded on start and when Home is pressed |
+| Show address bar | General | Toggle the URL bar and bookmark star |
+| Allow clipboard access | General | Let pages read/write the system clipboard |
+| Pin widget open | General | Keep it visible after losing focus |
+| Add / remove bookmarks | Links | Manage saved links by name and URL |
+| Developer console | Advanced | Show the WebEngine inspector toggle |
 
 ## Contributing
 
@@ -61,6 +66,11 @@ Pull requests are welcome — please open a PR against `main`.
 Direct pushes to `main` are disabled; all changes go through PRs.
 
 ## Changelog
+
+### v1.2.0
+- **Bookmarks / Links** — bookmark star next to the address bar saves the current page; collapsible sidebar lists all saved bookmarks
+- **Links config tab** — add bookmarks by name + URL, delete individually, from Configure → Links
+- Restored **Show address bar** toggle in General settings (defaults to on)
 
 ### v1.1.0
 - Renamed product to **Brave Widget Browser**

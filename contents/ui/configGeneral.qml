@@ -7,6 +7,7 @@ Kirigami.FormLayout {
     id: page
 
     property alias cfg_homePage: homePageField.text
+    property alias cfg_showUrlBar: showUrlBar.checked
     property alias cfg_allowClipboardAccess: allowClipboardAccess.checked
     property alias cfg_pin: pinByDefault.checked
 
@@ -20,6 +21,18 @@ Kirigami.FormLayout {
         font.pixelSize: 11
         font.italic: true
         text: i18n("This URL loads on widget startup and when you press the Home button.")
+    }
+
+    Item { height: Kirigami.Units.largeSpacing }
+
+    QQC2.CheckBox {
+        id: showUrlBar
+        text: i18n("Show address bar")
+    }
+    QQC2.Label {
+        font.pixelSize: 11
+        font.italic: true
+        text: i18n("Displays the URL bar and bookmark star below the navigation buttons.")
     }
 
     Item { height: Kirigami.Units.largeSpacing }
