@@ -15,11 +15,39 @@ import org.kde.kirigami 2.19 as Kirigami
 Item {
     id: root
 
-    // ── App state ────────────────────────────────────────────────────────
-    property bool appRunning: false
-
     // ── Quick Links state ────────────────────────────────────────────────
     property var bkList: []
+
+    // Set when edit-mode exit is detected; cleared once reposition fires
+    property bool pendingReposition: false
+
+    // Watches plasmoid.containment.editMode — no-op if containment is unavailable
+    // (Plasma versions that expose this API will get automatic reposition on edit-mode exit)
+    property bool inEditMode: plasmoid.containment ? !!plasmoid.containment.editMode : false
+    onInEditModeChanged: {
+        if (!inEditMode) editModeSettleTimer.start()
+    }
+
+    Timer {
+        id: editModeSettleTimer
+        interval: 800
+        repeat: false
+        onTriggered: widCheckSource.run("cat /tmp/brave-widget-wid.txt 2>/dev/null | tr -d '\\n'")
+    }
+
+    PlasmaCore.DataSource {
+        id: widCheckSource
+        engine: "executable"
+        connectedSources: []
+        onNewData: {
+            if (data["stdout"].trim().length > 0) {
+                root.pendingReposition = true
+                plasmoid.expanded = true
+            }
+            disconnectSource(sourceName)
+        }
+        function run(cmd) { connectSource(cmd) }
+    }
 
     Component.onCompleted: _bkReload()
 
@@ -48,6 +76,8 @@ Item {
 
     // ── Process management ────────────────────────────────────────────────
 
+    readonly property string tronLog: "/tmp/brave-widget-tron.log"
+
     // Fire-and-forget command runner
     PlasmaCore.DataSource {
         id: exeSource
@@ -57,45 +87,103 @@ Item {
         function run(cmd) { connectSource(cmd) }
     }
 
-    // Check-and-report runner — updates appRunning from stdout
+    // Snapshots Brave window IDs before a fresh launch
     PlasmaCore.DataSource {
-        id: checkSource
+        id: widsSource
         engine: "executable"
         connectedSources: []
         onNewData: {
-            root.appRunning = data["stdout"].trim().length > 0
+            var wids = data["stdout"].trim()
+            exeSource.run("echo '" + wids + "' | tr ',' '\\n' | grep -v '^$' > /tmp/brave-before-wids.txt")
+            exeSource.run("echo '[launch] prelaunch wids: " + wids + "' >> " + root.tronLog)
             disconnectSource(sourceName)
         }
         function run(cmd) { connectSource(cmd) }
     }
 
-    // Poll every 3 seconds; grep -v grep avoids self-match
+    // Tries to reposition a known existing window; outputs "ok" if it worked
+    PlasmaCore.DataSource {
+        id: repositionSource
+        engine: "executable"
+        connectedSources: []
+        property int wx: 0
+        property int wy: 0
+        property int ww: 400
+        property int wh: 600
+        onNewData: {
+            if (data["stdout"].trim() !== "ok") {
+                // Known window is gone — do a fresh launch instead
+                root._freshLaunch(wx, wy, ww, wh)
+            }
+            disconnectSource(sourceName)
+        }
+        function run(cmd) { connectSource(cmd) }
+    }
+
+    // Snaps a newly launched window: unmaximize → move → read title bar → re-move
     Timer {
-        interval: 3000
-        running: true
-        repeat: true
-        triggeredOnStart: true
-        onTriggered: checkSource.run(
-            "ps -eo args 2>/dev/null | grep 'brave-browser.*--app' | grep -v grep | head -1"
+        id: positionTimer
+        interval: 1800
+        repeat: false
+        property int wx: 0
+        property int wy: 0
+        property int ww: 400
+        property int wh: 600
+        onTriggered: {
+            var cmd =
+                "DISPLAY=:0; " +
+                "WID=$(xdotool search --class Brave 2>/dev/null " +
+                    "| grep -vFxf /tmp/brave-before-wids.txt | sort -n | tail -1); " +
+                "[ -n \"$WID\" ] || { echo '[snap] no new window' >> " + tronLog + "; exit 0; }; " +
+                "echo '[snap] WID='$WID >> " + tronLog + "; " +
+                "echo $WID > /tmp/brave-widget-wid.txt; " +
+                "wmctrl -i -r \"$WID\" -b remove,maximized_vert,maximized_horz; " +
+                "wmctrl -i -r \"$WID\" -e 0," + wx + "," + wy + "," + ww + "," + wh + "; " +
+                "TOP=$(xprop -id \"$WID\" _NET_FRAME_EXTENTS 2>/dev/null | grep -oP '[0-9]+' | awk 'NR==3'); " +
+                "TOP=${TOP:-0}; " +
+                "echo '[snap] titlebar='$TOP >> " + tronLog + "; " +
+                "wmctrl -i -r \"$WID\" -e 0," + wx + ",$((TOP+" + wy + "))," + ww + ",$(("+wh+"-TOP)); " +
+                "echo '[snap] done' >> " + tronLog
+            exeSource.run(cmd)
+        }
+    }
+
+    // Called by the Launch button with geometry captured inside fullRep's scope
+    function launch(wx, wy, ww, wh) {
+        exeSource.run("echo '[launch] clicked x=" + wx + " y=" + wy + " w=" + ww + " h=" + wh + "' >> " + tronLog)
+        repositionSource.wx = wx
+        repositionSource.wy = wy
+        repositionSource.ww = ww
+        repositionSource.wh = wh
+        // Try to reposition an already-open app window first
+        repositionSource.run(
+            "DISPLAY=:0; " +
+            "WID=$(cat /tmp/brave-widget-wid.txt 2>/dev/null | tr -d '\\n'); " +
+            "[ -n \"$WID\" ] || exit 0; " +
+            "xdotool getwindowgeometry \"$WID\" >/dev/null 2>&1 || exit 0; " +
+            "wmctrl -i -r \"$WID\" -b remove,maximized_vert,maximized_horz 2>/dev/null; " +
+            "wmctrl -i -r \"$WID\" -e 0," + wx + "," + wy + "," + ww + "," + wh + " 2>/dev/null; " +
+            "TOP=$(xprop -id \"$WID\" _NET_FRAME_EXTENTS 2>/dev/null | grep -oP '[0-9]+' | awk 'NR==3'); " +
+            "TOP=${TOP:-0}; " +
+            "wmctrl -i -r \"$WID\" -e 0," + wx + ",$((TOP+" + wy + "))," + ww + ",$(("+wh+"-TOP)) 2>/dev/null; " +
+            "echo '[launch] repositioned existing WID='$WID >> " + tronLog + "; " +
+            "echo ok"
         )
     }
 
-    function launch() {
+    // Fresh launch path — called by repositionSource when no known window exists
+    function _freshLaunch(wx, wy, ww, wh) {
+        exeSource.run("rm -f /tmp/brave-widget-wid.txt")
+        widsSource.run("DISPLAY=:0 xdotool search --class Brave 2>/dev/null | sort -n | tr '\\n' ','")
         exeSource.run(
             plasmoid.configuration.bravePath +
             " --app=\"" + plasmoid.configuration.homePage + "\" &"
         )
-    }
-
-    function focusApp() {
-        exeSource.run(
-            "wmctrl -x -a brave-browser 2>/dev/null || " +
-            "xdotool search --class brave-browser windowactivate 2>/dev/null; true"
-        )
-    }
-
-    function closeApp() {
-        exeSource.run("pkill -f 'brave-browser.*--app' 2>/dev/null; true")
+        positionTimer.wx = wx
+        positionTimer.wy = wy
+        positionTimer.ww = ww
+        positionTimer.wh = wh
+        positionTimer.restart()
     }
 
     function launchQuickLink(url) {
@@ -105,41 +193,21 @@ Item {
     }
 
     // ── Compact representation ─────────────────────────────────────────────
-    // Defined inline so it can read root.appRunning
     Plasmoid.compactRepresentation: Item {
         anchors.fill: parent
 
         PlasmaCore.SvgItem {
-            id: compactIcon
             anchors.centerIn: parent
             width:  Math.min(parent.width, parent.height)
             height: width
-
             svg: PlasmaCore.Svg {
                 imagePath: Qt.resolvedUrl("assets/logo.svg")
             }
         }
 
-        // Status dot — green = running, grey = stopped
-        Rectangle {
-            anchors.bottom:  compactIcon.bottom
-            anchors.right:   compactIcon.right
-            width:  Math.max(4, Math.round(compactIcon.width * 0.28))
-            height: width
-            radius: width / 2
-            color:  root.appRunning ? "#27ae60" : "#7f8c8d"
-            border.color: theme.backgroundColor
-            border.width: 1
-        }
-
         MouseArea {
             anchors.fill: parent
-            onClicked: {
-                if (root.appRunning)
-                    root.focusApp()
-                else
-                    plasmoid.expanded = !plasmoid.expanded
-            }
+            onClicked: plasmoid.expanded = !plasmoid.expanded
         }
     }
 
@@ -158,6 +226,28 @@ Item {
             target: plasmoid
             property: "hideOnWindowDeactivate"
             value: !plasmoid.configuration.pin
+        }
+
+        // Fires when popup opens after an edit-mode exit (future Plasma versions)
+        Connections {
+            target: plasmoid
+            function onExpandedChanged() {
+                if (plasmoid.expanded && root.pendingReposition) {
+                    root.pendingReposition = false
+                    autoRepositionTimer.start()
+                }
+            }
+        }
+
+        Timer {
+            id: autoRepositionTimer
+            interval: 800
+            repeat: false
+            onTriggered: {
+                var pos = fullRep.mapToGlobal(0, 0)
+                root.launch(Math.round(pos.x), Math.round(pos.y),
+                            Math.round(fullRep.width), Math.round(fullRep.height))
+            }
         }
 
         // ── Header ──────────────────────────────────────────────────────
@@ -193,70 +283,25 @@ Item {
             }
         }
 
-        // ── Status ───────────────────────────────────────────────────────
-        ColumnLayout {
+        // ── URL label ────────────────────────────────────────────────────
+        PlasmaComponents.Label {
             Layout.fillWidth: true
-            spacing: Kirigami.Units.smallSpacing
-
-            RowLayout {
-                Layout.alignment: Qt.AlignHCenter
-                spacing: Kirigami.Units.smallSpacing
-
-                Rectangle {
-                    width:  Kirigami.Units.gridUnit * 0.55
-                    height: width
-                    radius: width / 2
-                    color:  root.appRunning ? "#27ae60" : "#7f8c8d"
-                }
-
-                PlasmaComponents.Label {
-                    text:  root.appRunning ? i18n("Running") : i18n("Not running")
-                    color: root.appRunning
-                        ? Kirigami.Theme.positiveTextColor
-                        : Kirigami.Theme.disabledTextColor
-                }
-            }
-
-            PlasmaComponents.Label {
-                Layout.fillWidth: true
-                text: plasmoid.configuration.homePage
-                elide: Text.ElideMiddle
-                horizontalAlignment: Text.AlignHCenter
-                font.pixelSize: 11
-                opacity: 0.65
-            }
+            text: plasmoid.configuration.homePage
+            elide: Text.ElideMiddle
+            horizontalAlignment: Text.AlignHCenter
+            font.pixelSize: 11
+            opacity: 0.65
         }
 
-        // ── Controls ─────────────────────────────────────────────────────
-        ColumnLayout {
+        // ── Launch button ─────────────────────────────────────────────────
+        PlasmaComponents.Button {
             Layout.fillWidth: true
-            spacing: Kirigami.Units.smallSpacing
-
-            PlasmaComponents.Button {
-                Layout.fillWidth: true
-                visible: !root.appRunning
-                text: i18n("Launch in Brave")
-                icon.name: "media-playback-start"
-                onClicked: root.launch()
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-                visible: root.appRunning
-                spacing: Kirigami.Units.smallSpacing
-
-                PlasmaComponents.Button {
-                    Layout.fillWidth: true
-                    text: i18n("Focus Window")
-                    icon.name: "window-restore"
-                    onClicked: root.focusApp()
-                }
-
-                PlasmaComponents.Button {
-                    text: i18n("Close")
-                    icon.name: "media-playback-stop"
-                    onClicked: root.closeApp()
-                }
+            text: i18n("Embed Brave")
+            icon.name: "media-playback-start"
+            onClicked: {
+                var pos = fullRep.mapToGlobal(0, 0)
+                root.launch(Math.round(pos.x), Math.round(pos.y),
+                            Math.round(fullRep.width), Math.round(fullRep.height))
             }
         }
 

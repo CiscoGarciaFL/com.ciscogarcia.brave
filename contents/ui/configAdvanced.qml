@@ -11,7 +11,7 @@ Kirigami.FormLayout {
     QQC2.TextField {
         id: bravePathField
         Kirigami.FormData.label: i18n("Brave executable:")
-        placeholderText: "brave-browser"
+        placeholderText: "/snap/bin/brave"
         Layout.fillWidth: true
     }
     QQC2.Label {
@@ -21,6 +21,6 @@ Kirigami.FormLayout {
     }
     QQC2.Button {
         text: i18n("Reset to default")
-        onClicked: bravePathField.text = "brave-browser"
+        onClicked: bravePathField.text = "/snap/bin/brave"
     }
 }

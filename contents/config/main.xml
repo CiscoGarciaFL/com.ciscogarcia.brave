@@ -19,7 +19,7 @@
         </entry>
         <entry name="bravePath" type="String">
             <label>Path or command name for the Brave executable.</label>
-            <default>brave-browser</default>
+            <default>/snap/bin/brave</default>
         </entry>
         <entry name="debugConsole" type="Bool">
             <label>Show the developer console toggle in the toolbar.</label>
