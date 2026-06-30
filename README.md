@@ -74,6 +74,10 @@ Pull requests are welcome — please open a PR against `main`.
 - **Close Window button** — visible in the widget when a Brave window is tracked; cleanly closes
   it and clears state
 - **Startup window detection** — widget restores its "window known" state across plasmashell restarts
+- **Follows across virtual desktops** — Brave window is set to All Desktops so it stays visible
+  no matter which virtual desktop you switch to
+- **Smart Embed Brave button** — realigns an existing Brave window back over the widget popup if
+  one is already open; launches a new window if none exists
 - **Widget icon** — now shows correctly in Add Widgets dialog for snap-installed Brave (icon no
   longer depends on the system icon theme; bundled `logo.svg` used instead)
 - Default App URL changed to `https://kde.org`
