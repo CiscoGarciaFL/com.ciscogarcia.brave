@@ -18,11 +18,8 @@ Item {
     // ── Quick Links state ────────────────────────────────────────────────
     property var bkList: []
 
-    // Set when edit-mode exit is detected; cleared once reposition fires
     property bool pendingReposition: false
 
-    // Watches plasmoid.containment.editMode — no-op if containment is unavailable
-    // (Plasma versions that expose this API will get automatic reposition on edit-mode exit)
     property bool inEditMode: plasmoid.containment ? !!plasmoid.containment.editMode : false
     onInEditModeChanged: {
         if (!inEditMode) editModeSettleTimer.start()
@@ -51,6 +48,7 @@ Item {
 
     Component.onCompleted: {
         _bkReload()
+        checkBravePath()
         startupCheckSource.run(
             "DISPLAY=:0; WID=$(cat /tmp/brave-widget-wid.txt 2>/dev/null | tr -d '\\n'); " +
             "[ -n \"$WID\" ] && xdotool getwindowgeometry \"$WID\" >/dev/null 2>&1 && echo ok || true"
@@ -60,6 +58,7 @@ Item {
     Connections {
         target: plasmoid.configuration
         function onBookmarksChanged() { _bkReload() }
+        function onBravePathChanged() { root.checkBravePath() }
     }
 
     function _bkReload() {
@@ -80,11 +79,21 @@ Item {
         _bkSave()
     }
 
-    // ── Process management ────────────────────────────────────────────────
+    // ── Process / session state ───────────────────────────────────────────
 
     property bool hasKnownWindow: false
 
-    // Fire-and-forget command runner
+    // Session-only — bar always shows on popup open; auto-hides per config after embed
+    property bool sessionShowAddressBar: true
+    property bool sessionHideDecorations: plasmoid.configuration.hideDecorations
+    property string currentUrl: plasmoid.configuration.homePage
+
+    // Brave executable check
+    property bool braveFound: false
+    property bool braveCheckDone: false
+
+    // ── DataSources ───────────────────────────────────────────────────────
+
     PlasmaCore.DataSource {
         id: exeSource
         engine: "executable"
@@ -93,7 +102,6 @@ Item {
         function run(cmd) { connectSource(cmd) }
     }
 
-    // Snapshots Brave window IDs before a fresh launch
     PlasmaCore.DataSource {
         id: widsSource
         engine: "executable"
@@ -106,7 +114,6 @@ Item {
         function run(cmd) { connectSource(cmd) }
     }
 
-    // Checks at startup whether a previously embedded window is still alive
     PlasmaCore.DataSource {
         id: startupCheckSource
         engine: "executable"
@@ -118,19 +125,30 @@ Item {
         function run(cmd) { connectSource(cmd) }
     }
 
-    // Closes the embedded window and clears the tracked window ID
+    PlasmaCore.DataSource {
+        id: braveCheckSource
+        engine: "executable"
+        connectedSources: []
+        onNewData: {
+            root.braveFound = (data["stdout"].trim() === "ok")
+            root.braveCheckDone = true
+            disconnectSource(sourceName)
+        }
+        function run(cmd) { connectSource(cmd) }
+    }
+
     PlasmaCore.DataSource {
         id: closeWindowSource
         engine: "executable"
         connectedSources: []
         onNewData: {
             root.hasKnownWindow = false
+            root.sessionShowAddressBar = true
             disconnectSource(sourceName)
         }
         function run(cmd) { connectSource(cmd) }
     }
 
-    // Tries to reposition a known existing window; outputs "ok" if it worked
     PlasmaCore.DataSource {
         id: repositionSource
         engine: "executable"
@@ -144,13 +162,18 @@ Item {
                 root._freshLaunch(wx, wy, ww, wh)
             } else {
                 root.hasKnownWindow = true
+                // Auto-hide bar after re-embed if config requests it
+                if (!plasmoid.configuration.showAddressBar) {
+                    root.sessionShowAddressBar = false
+                }
             }
             disconnectSource(sourceName)
         }
         function run(cmd) { connectSource(cmd) }
     }
 
-    // Snaps a newly launched window: unmaximize → move → read title bar → re-move
+    // ── Window positioning ────────────────────────────────────────────────
+
     Timer {
         id: positionTimer
         interval: 1800
@@ -160,7 +183,7 @@ Item {
         property int ww: 400
         property int wh: 600
         onTriggered: {
-            var noBorderVal = plasmoid.configuration.hideDecorations ? "true" : "false"
+            var noBorderVal = root.sessionHideDecorations ? "true" : "false"
             var decorCmd =
                 "echo \"var cl=workspace.clientList(),i;for(i=0;i<cl.length;i++){if(String(cl[i].windowId)==='$WID'){cl[i].noBorder=" + noBorderVal + ";break;}}\" > /tmp/brave_nodecor.js 2>/dev/null; " +
                 "SID=$(qdbus org.kde.KWin /Scripting org.kde.kwin.Scripting.loadScript /tmp/brave_nodecor.js \"brave_nodecor_$$\" 2>/dev/null); " +
@@ -182,16 +205,19 @@ Item {
                 "wmctrl -i -r \"$WID\" -e 0," + wx + ",$((TOP+" + wy + "))," + ww + ",$(("+wh+"-TOP))"
             exeSource.run(cmd)
             root.hasKnownWindow = true
+            // Auto-hide bar after fresh embed if config requests it
+            if (!plasmoid.configuration.showAddressBar) {
+                root.sessionShowAddressBar = false
+            }
         }
     }
 
-    // Called by the Launch button with geometry captured inside fullRep's scope
     function launch(wx, wy, ww, wh) {
         repositionSource.wx = wx
         repositionSource.wy = wy
         repositionSource.ww = ww
         repositionSource.wh = wh
-        var noBorderVal = plasmoid.configuration.hideDecorations ? "true" : "false"
+        var noBorderVal = root.sessionHideDecorations ? "true" : "false"
         var decorCmd =
             "echo \"var cl=workspace.clientList(),i;for(i=0;i<cl.length;i++){if(String(cl[i].windowId)==='$WID'){cl[i].noBorder=" + noBorderVal + ";break;}}\" > /tmp/brave_nodecor.js 2>/dev/null; " +
             "SID=$(qdbus org.kde.KWin /Scripting org.kde.kwin.Scripting.loadScript /tmp/brave_nodecor.js \"brave_nodecor_$$\" 2>/dev/null); " +
@@ -214,13 +240,12 @@ Item {
         )
     }
 
-    // Fresh launch path — called by repositionSource when no known window exists
     function _freshLaunch(wx, wy, ww, wh) {
         exeSource.run("rm -f /tmp/brave-widget-wid.txt")
         widsSource.run("DISPLAY=:0 xdotool search --class Brave 2>/dev/null | sort -n | tr '\\n' ','")
         exeSource.run(
             plasmoid.configuration.bravePath +
-            " --app=\"" + plasmoid.configuration.homePage + "\" &"
+            " --app=\"" + root.currentUrl + "\" &"
         )
         positionTimer.wx = wx
         positionTimer.wy = wy
@@ -234,6 +259,53 @@ Item {
         exeSource.run(
             plasmoid.configuration.bravePath + " --app=\"" + url + "\" &"
         )
+    }
+
+    function navigateTo(url) {
+        root.currentUrl = url
+        var safe = url.replace(/\\/g, "\\\\").replace(/"/g, '\\"')
+                      .replace(/\$/g, "\\$").replace(/`/g, "\\`")
+        exeSource.run(
+            "DISPLAY=:0; WID=$(cat /tmp/brave-widget-wid.txt 2>/dev/null | tr -d '\\n'); " +
+            "[ -n \"$WID\" ] || exit 0; " +
+            "xdotool windowfocus --sync \"$WID\" 2>/dev/null; " +
+            "xdotool key --window \"$WID\" ctrl+l 2>/dev/null; " +
+            "sleep 0.3; " +
+            "xdotool type --window \"$WID\" --clearmodifiers \"" + safe + "\" 2>/dev/null; " +
+            "xdotool key --window \"$WID\" Return 2>/dev/null"
+        )
+    }
+
+    function toggleDecorations() {
+        root.sessionHideDecorations = !root.sessionHideDecorations
+        var noBorderVal = root.sessionHideDecorations ? "true" : "false"
+        exeSource.run(
+            "DISPLAY=:0; WID=$(cat /tmp/brave-widget-wid.txt 2>/dev/null | tr -d '\\n'); " +
+            "[ -n \"$WID\" ] || exit 0; " +
+            "echo \"var cl=workspace.clientList(),i;for(i=0;i<cl.length;i++){if(String(cl[i].windowId)==='$WID'){cl[i].noBorder=" + noBorderVal + ";break;}}\" > /tmp/brave_nodecor.js 2>/dev/null; " +
+            "SID=$(qdbus org.kde.KWin /Scripting org.kde.kwin.Scripting.loadScript /tmp/brave_nodecor.js \"brave_nodecor_$$\" 2>/dev/null); " +
+            "qdbus org.kde.KWin /Scripting org.kde.kwin.Scripting.start >/dev/null 2>&1; " +
+            "sleep 0.3; " +
+            "[ -n \"$SID\" ] && qdbus org.kde.KWin /\"$SID\" org.kde.kwin.Script.stop >/dev/null 2>&1"
+        )
+    }
+
+    function checkBravePath() {
+        var p = plasmoid.configuration.bravePath
+        var safe = p.replace(/'/g, "'\\''")
+        braveCheckSource.run(
+            "([ -x '" + safe + "' ] || command -v '" + safe + "' >/dev/null 2>&1) && echo ok || echo fail"
+        )
+    }
+
+    function addBookmark(url) {
+        if (!url || url.trim().length === 0) return
+        var name = url.replace(/^https?:\/\//, "").replace(/\/$/, "").split("/")[0].split("?")[0]
+        if (name.length === 0) name = url
+        var list = JSON.parse(JSON.stringify(bkList))
+        list.push({ name: name, url: url })
+        bkList = list
+        _bkSave()
     }
 
     // ── Compact representation ─────────────────────────────────────────────
@@ -259,12 +331,19 @@ Item {
     Plasmoid.fullRepresentation: ColumnLayout {
         id: fullRep
         anchors.fill: parent
-        spacing: Kirigami.Units.largeSpacing
+        spacing: Kirigami.Units.smallSpacing
 
         Layout.minimumWidth:  260 * PlasmaCore.Units.devicePixelRatio
         Layout.minimumHeight: 180 * PlasmaCore.Units.devicePixelRatio
         Layout.preferredWidth:  340 * PlasmaCore.Units.devicePixelRatio
         Layout.preferredHeight: 420 * PlasmaCore.Units.devicePixelRatio
+
+        // When bar is visible: offset Brave window below it.
+        // When bar is hidden: Brave covers the full popup area.
+        // +4 accounts for the 2px top/bottom margin on addressHeader.
+        property real barOffset: root.sessionShowAddressBar
+            ? (addressHeader.height + 4 + fullRep.spacing)
+            : 0
 
         Binding {
             target: plasmoid
@@ -272,13 +351,16 @@ Item {
             value: !plasmoid.configuration.pin
         }
 
-        // Fires when popup opens after an edit-mode exit (future Plasma versions)
         Connections {
             target: plasmoid
             function onExpandedChanged() {
-                if (plasmoid.expanded && root.pendingReposition) {
-                    root.pendingReposition = false
-                    autoRepositionTimer.start()
+                if (plasmoid.expanded) {
+                    // Bar always re-appears when popup opens so user can interact
+                    root.sessionShowAddressBar = true
+                    if (root.pendingReposition) {
+                        root.pendingReposition = false
+                        autoRepositionTimer.start()
+                    }
                 }
             }
         }
@@ -289,63 +371,146 @@ Item {
             repeat: false
             onTriggered: {
                 var pos = fullRep.mapToGlobal(0, 0)
-                root.launch(Math.round(pos.x), Math.round(pos.y),
-                            Math.round(fullRep.width), Math.round(fullRep.height))
+                var barH = Math.round(fullRep.barOffset)
+                root.launch(Math.round(pos.x), Math.round(pos.y) + barH,
+                            Math.round(fullRep.width), Math.round(fullRep.height) - barH)
             }
         }
 
-        // ── Header ──────────────────────────────────────────────────────
-        PlasmaExtras.PlasmoidHeading {
-            Layout.fillWidth: true
-
-            RowLayout {
-                anchors.fill: parent
-                spacing: Kirigami.Units.smallSpacing
-
-                PlasmaCore.SvgItem {
-                    width:  Kirigami.Units.iconSizes.medium
-                    height: width
-                    svg: PlasmaCore.Svg { imagePath: Qt.resolvedUrl("assets/logo.svg") }
-                }
-
-                PlasmaComponents.Label {
-                    Layout.fillWidth: true
-                    text: "Brave Widget Browser"
-                    font.bold: true
-                }
-
-                PlasmaComponents.ToolButton {
-                    icon.name: "window-pin"
-                    checkable: true
-                    checked: plasmoid.configuration.pin
-                    display: PlasmaComponents.ToolButton.IconOnly
-                    PlasmaComponents.ToolTip.text: i18n("Keep Open")
-                    PlasmaComponents.ToolTip.delay: Kirigami.Units.toolTipDelay
-                    PlasmaComponents.ToolTip.visible: hovered
-                    onToggled: plasmoid.configuration.pin = checked
-                }
+        // Reposition Brave after bar or decoration state changes
+        Timer {
+            id: repositionAfterChangeTimer
+            interval: 400
+            repeat: false
+            onTriggered: {
+                var pos = fullRep.mapToGlobal(0, 0)
+                var barH = Math.round(fullRep.barOffset)
+                root.launch(Math.round(pos.x), Math.round(pos.y) + barH,
+                            Math.round(fullRep.width), Math.round(fullRep.height) - barH)
             }
         }
 
-        // ── URL label ────────────────────────────────────────────────────
-        PlasmaComponents.Label {
-            Layout.fillWidth: true
-            text: plasmoid.configuration.homePage
-            elide: Text.ElideMiddle
-            horizontalAlignment: Text.AlignHCenter
-            font.pixelSize: 11
-            opacity: 0.65
+        Connections {
+            target: root
+            function onSessionShowAddressBarChanged() {
+                if (root.hasKnownWindow) repositionAfterChangeTimer.start()
+            }
+            function onSessionHideDecorationsChanged() {
+                if (root.hasKnownWindow) repositionAfterChangeTimer.start()
+            }
         }
 
-        // ── Launch button ─────────────────────────────────────────────────
+        // ── Combined address bar / header ─────────────────────────────────
+        RowLayout {
+            id: addressHeader
+            Layout.fillWidth: true
+            Layout.topMargin: 2
+            Layout.bottomMargin: 2
+            visible: root.sessionShowAddressBar
+            spacing: Kirigami.Units.smallSpacing
+
+            // Icon pinned to a fixed square matching the TextField height
+            PlasmaCore.SvgItem {
+                Layout.preferredWidth:  urlField.implicitHeight
+                Layout.preferredHeight: urlField.implicitHeight
+                Layout.maximumWidth:    urlField.implicitHeight
+                Layout.maximumHeight:   urlField.implicitHeight
+                Layout.alignment: Qt.AlignVCenter
+                svg: PlasmaCore.Svg { imagePath: Qt.resolvedUrl("assets/logo.svg") }
+            }
+
+            PlasmaComponents.TextField {
+                id: urlField
+                Layout.fillWidth: true
+                text: root.currentUrl
+                placeholderText: "https://..."
+                onAccepted: root.navigateTo(text)
+            }
+
+            PlasmaComponents.ToolButton {
+                icon.name: "bookmark-new"
+                display: PlasmaComponents.ToolButton.IconOnly
+                PlasmaComponents.ToolTip.text: i18n("Save to Quick Links")
+                PlasmaComponents.ToolTip.delay: Kirigami.Units.toolTipDelay
+                PlasmaComponents.ToolTip.visible: hovered
+                onClicked: root.addBookmark(urlField.text)
+            }
+
+            PlasmaComponents.ToolButton {
+                icon.name: root.sessionHideDecorations ? "view-restore" : "view-fullscreen"
+                display: PlasmaComponents.ToolButton.IconOnly
+                PlasmaComponents.ToolTip.text: root.sessionHideDecorations
+                    ? i18n("Show Title Bar") : i18n("Hide Title Bar")
+                PlasmaComponents.ToolTip.delay: Kirigami.Units.toolTipDelay
+                PlasmaComponents.ToolTip.visible: hovered
+                onClicked: root.toggleDecorations()
+            }
+
+            PlasmaComponents.ToolButton {
+                icon.name: "go-next"
+                display: PlasmaComponents.ToolButton.IconOnly
+                PlasmaComponents.ToolTip.text: i18n("Go")
+                PlasmaComponents.ToolTip.delay: Kirigami.Units.toolTipDelay
+                PlasmaComponents.ToolTip.visible: hovered
+                onClicked: root.navigateTo(urlField.text)
+            }
+
+            PlasmaComponents.ToolButton {
+                icon.name: "go-up"
+                display: PlasmaComponents.ToolButton.IconOnly
+                PlasmaComponents.ToolTip.text: i18n("Cover with Browser Window")
+                PlasmaComponents.ToolTip.delay: Kirigami.Units.toolTipDelay
+                PlasmaComponents.ToolTip.visible: hovered
+                onClicked: root.sessionShowAddressBar = false
+            }
+
+            PlasmaComponents.ToolButton {
+                icon.name: "window-pin"
+                checkable: true
+                checked: plasmoid.configuration.pin
+                display: PlasmaComponents.ToolButton.IconOnly
+                PlasmaComponents.ToolTip.text: i18n("Keep Open")
+                PlasmaComponents.ToolTip.delay: Kirigami.Units.toolTipDelay
+                PlasmaComponents.ToolTip.visible: hovered
+                onToggled: plasmoid.configuration.pin = checked
+            }
+        }
+
+        // ── Brave executable status ───────────────────────────────────────
+        RowLayout {
+            Layout.fillWidth: true
+            Layout.leftMargin: Kirigami.Units.smallSpacing
+            visible: root.braveCheckDone
+            spacing: Kirigami.Units.smallSpacing
+
+            Rectangle {
+                width: 10
+                height: 10
+                radius: 5
+                color: root.braveFound ? "#4caf50" : "#f44336"
+            }
+
+            PlasmaComponents.Label {
+                text: root.braveFound
+                    ? i18n("Brave executable located")
+                    : i18n("Brave browser not located")
+                font.pixelSize: 11
+                color: root.braveFound ? "#4caf50" : "#f44336"
+                Layout.fillWidth: true
+            }
+        }
+
+        // ── Launch / Close buttons ────────────────────────────────────────
         PlasmaComponents.Button {
             Layout.fillWidth: true
             text: i18n("Embed Brave")
             icon.name: "media-playback-start"
             onClicked: {
+                root.currentUrl = urlField.text
                 var pos = fullRep.mapToGlobal(0, 0)
-                root.launch(Math.round(pos.x), Math.round(pos.y),
-                            Math.round(fullRep.width), Math.round(fullRep.height))
+                var barH = Math.round(fullRep.barOffset)
+                root.launch(Math.round(pos.x), Math.round(pos.y) + barH,
+                            Math.round(fullRep.width), Math.round(fullRep.height) - barH)
             }
         }
 

@@ -8,15 +8,28 @@ Kirigami.FormLayout {
 
     property alias cfg_bravePath: bravePathField.text
     property alias cfg_hideDecorations: hideDecorationsCheck.checked
+    property alias cfg_showAddressBar: showAddressBarCheck.checked
 
     QQC2.CheckBox {
-        id: hideDecorationsCheck
-        text: i18n("Hide window title bar")
+        id: showAddressBarCheck
+        text: i18n("Show address bar after embedding")
     }
     QQC2.Label {
         font.pixelSize: 11
         font.italic: true
-        text: i18n("Removes the title bar from the embedded Brave window. Use the 'Close Window' button in the widget to close it.")
+        text: i18n("When unchecked, the browser window automatically covers the full widget area after embedding. The bar always appears first so you can set a URL.")
+    }
+
+    Item { height: Kirigami.Units.largeSpacing }
+
+    QQC2.CheckBox {
+        id: hideDecorationsCheck
+        text: i18n("Hide window title bar by default")
+    }
+    QQC2.Label {
+        font.pixelSize: 11
+        font.italic: true
+        text: i18n("Removes the title bar from the embedded Brave window. Can also be toggled live from the address bar.")
     }
 
     Item { height: Kirigami.Units.largeSpacing }
