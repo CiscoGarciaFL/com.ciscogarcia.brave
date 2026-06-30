@@ -8,7 +8,7 @@
         ],
         "Category": "Online Services",
         "Description": "Brave Browser Plasma widget — embeds a full browser with a configurable home page.",
-        "Icon": "brave-browser",
+        "Icon": "logo",
         "Id": "com.ciscogarcia.brave",
         "License": "Apache-2.0",
         "Name": "Brave Widget Browser",

@@ -12,13 +12,13 @@ Kirigami.FormLayout {
     QQC2.TextField {
         id: appUrlField
         Kirigami.FormData.label: i18n("App URL:")
-        placeholderText: "https://teams.microsoft.com"
+        placeholderText: "https://kde.org"
         Layout.fillWidth: true
     }
     QQC2.Label {
         font.pixelSize: 11
         font.italic: true
-        text: i18n("Brave opens this URL in app mode (no tabs, no address bar).")
+        text: i18n("Home page loaded when the widget opens.")
     }
 
     Item { height: Kirigami.Units.largeSpacing }

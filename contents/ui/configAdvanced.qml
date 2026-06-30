@@ -7,6 +7,19 @@ Kirigami.FormLayout {
     id: page
 
     property alias cfg_bravePath: bravePathField.text
+    property alias cfg_hideDecorations: hideDecorationsCheck.checked
+
+    QQC2.CheckBox {
+        id: hideDecorationsCheck
+        text: i18n("Hide window title bar")
+    }
+    QQC2.Label {
+        font.pixelSize: 11
+        font.italic: true
+        text: i18n("Removes the title bar from the embedded Brave window. Use the 'Close Window' button in the widget to close it.")
+    }
+
+    Item { height: Kirigami.Units.largeSpacing }
 
     QQC2.TextField {
         id: bravePathField

@@ -7,7 +7,7 @@
     <group name="General">
         <entry name="homePage" type="String">
             <label>URL to open when launching Brave in app mode.</label>
-            <default>https://teams.microsoft.com</default>
+            <default>https://kde.org</default>
         </entry>
         <entry name="bookmarks" type="String">
             <label>JSON array of quick-link objects {name, url}.</label>
@@ -20,6 +20,10 @@
         <entry name="bravePath" type="String">
             <label>Path or command name for the Brave executable.</label>
             <default>/snap/bin/brave</default>
+        </entry>
+        <entry name="hideDecorations" type="Bool">
+            <label>Remove the title bar from the embedded Brave window.</label>
+            <default>false</default>
         </entry>
         <entry name="debugConsole" type="Bool">
             <label>Show the developer console toggle in the toolbar.</label>

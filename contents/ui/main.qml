@@ -49,7 +49,13 @@ Item {
         function run(cmd) { connectSource(cmd) }
     }
 
-    Component.onCompleted: _bkReload()
+    Component.onCompleted: {
+        _bkReload()
+        startupCheckSource.run(
+            "DISPLAY=:0; WID=$(cat /tmp/brave-widget-wid.txt 2>/dev/null | tr -d '\\n'); " +
+            "[ -n \"$WID\" ] && xdotool getwindowgeometry \"$WID\" >/dev/null 2>&1 && echo ok || true"
+        )
+    }
 
     Connections {
         target: plasmoid.configuration
@@ -76,7 +82,7 @@ Item {
 
     // ── Process management ────────────────────────────────────────────────
 
-    readonly property string tronLog: "/tmp/brave-widget-tron.log"
+    property bool hasKnownWindow: false
 
     // Fire-and-forget command runner
     PlasmaCore.DataSource {
@@ -95,7 +101,30 @@ Item {
         onNewData: {
             var wids = data["stdout"].trim()
             exeSource.run("echo '" + wids + "' | tr ',' '\\n' | grep -v '^$' > /tmp/brave-before-wids.txt")
-            exeSource.run("echo '[launch] prelaunch wids: " + wids + "' >> " + root.tronLog)
+            disconnectSource(sourceName)
+        }
+        function run(cmd) { connectSource(cmd) }
+    }
+
+    // Checks at startup whether a previously embedded window is still alive
+    PlasmaCore.DataSource {
+        id: startupCheckSource
+        engine: "executable"
+        connectedSources: []
+        onNewData: {
+            if (data["stdout"].trim() === "ok") root.hasKnownWindow = true
+            disconnectSource(sourceName)
+        }
+        function run(cmd) { connectSource(cmd) }
+    }
+
+    // Closes the embedded window and clears the tracked window ID
+    PlasmaCore.DataSource {
+        id: closeWindowSource
+        engine: "executable"
+        connectedSources: []
+        onNewData: {
+            root.hasKnownWindow = false
             disconnectSource(sourceName)
         }
         function run(cmd) { connectSource(cmd) }
@@ -112,8 +141,9 @@ Item {
         property int wh: 600
         onNewData: {
             if (data["stdout"].trim() !== "ok") {
-                // Known window is gone — do a fresh launch instead
                 root._freshLaunch(wx, wy, ww, wh)
+            } else {
+                root.hasKnownWindow = true
             }
             disconnectSource(sourceName)
         }
@@ -130,45 +160,56 @@ Item {
         property int ww: 400
         property int wh: 600
         onTriggered: {
+            var noBorderVal = plasmoid.configuration.hideDecorations ? "true" : "false"
+            var decorCmd =
+                "echo \"var cl=workspace.clientList(),i;for(i=0;i<cl.length;i++){if(String(cl[i].windowId)==='$WID'){cl[i].noBorder=" + noBorderVal + ";break;}}\" > /tmp/brave_nodecor.js 2>/dev/null; " +
+                "SID=$(qdbus org.kde.KWin /Scripting org.kde.kwin.Scripting.loadScript /tmp/brave_nodecor.js \"brave_nodecor_$$\" 2>/dev/null); " +
+                "qdbus org.kde.KWin /Scripting org.kde.kwin.Scripting.start >/dev/null 2>&1; " +
+                "sleep 0.3; " +
+                "[ -n \"$SID\" ] && qdbus org.kde.KWin /\"$SID\" org.kde.kwin.Script.stop >/dev/null 2>&1; "
             var cmd =
                 "DISPLAY=:0; " +
                 "WID=$(xdotool search --class Brave 2>/dev/null " +
                     "| grep -vFxf /tmp/brave-before-wids.txt | sort -n | tail -1); " +
-                "[ -n \"$WID\" ] || { echo '[snap] no new window' >> " + tronLog + "; exit 0; }; " +
-                "echo '[snap] WID='$WID >> " + tronLog + "; " +
+                "[ -n \"$WID\" ] || exit 0; " +
                 "echo $WID > /tmp/brave-widget-wid.txt; " +
+                decorCmd +
                 "wmctrl -i -r \"$WID\" -b remove,maximized_vert,maximized_horz; " +
-                "wmctrl -i -r \"$WID\" -b add,sticky; " +
+                "xdotool set_desktop_for_window \"$WID\" 4294967295 2>/dev/null; " +
                 "wmctrl -i -r \"$WID\" -e 0," + wx + "," + wy + "," + ww + "," + wh + "; " +
                 "TOP=$(xprop -id \"$WID\" _NET_FRAME_EXTENTS 2>/dev/null | grep -oP '[0-9]+' | awk 'NR==3'); " +
                 "TOP=${TOP:-0}; " +
-                "echo '[snap] titlebar='$TOP >> " + tronLog + "; " +
-                "wmctrl -i -r \"$WID\" -e 0," + wx + ",$((TOP+" + wy + "))," + ww + ",$(("+wh+"-TOP)); " +
-                "echo '[snap] done' >> " + tronLog
+                "wmctrl -i -r \"$WID\" -e 0," + wx + ",$((TOP+" + wy + "))," + ww + ",$(("+wh+"-TOP))"
             exeSource.run(cmd)
+            root.hasKnownWindow = true
         }
     }
 
     // Called by the Launch button with geometry captured inside fullRep's scope
     function launch(wx, wy, ww, wh) {
-        exeSource.run("echo '[launch] clicked x=" + wx + " y=" + wy + " w=" + ww + " h=" + wh + "' >> " + tronLog)
         repositionSource.wx = wx
         repositionSource.wy = wy
         repositionSource.ww = ww
         repositionSource.wh = wh
-        // Try to reposition an already-open app window first
+        var noBorderVal = plasmoid.configuration.hideDecorations ? "true" : "false"
+        var decorCmd =
+            "echo \"var cl=workspace.clientList(),i;for(i=0;i<cl.length;i++){if(String(cl[i].windowId)==='$WID'){cl[i].noBorder=" + noBorderVal + ";break;}}\" > /tmp/brave_nodecor.js 2>/dev/null; " +
+            "SID=$(qdbus org.kde.KWin /Scripting org.kde.kwin.Scripting.loadScript /tmp/brave_nodecor.js \"brave_nodecor_$$\" 2>/dev/null); " +
+            "qdbus org.kde.KWin /Scripting org.kde.kwin.Scripting.start >/dev/null 2>&1; " +
+            "sleep 0.3; " +
+            "[ -n \"$SID\" ] && qdbus org.kde.KWin /\"$SID\" org.kde.kwin.Script.stop >/dev/null 2>&1; "
         repositionSource.run(
             "DISPLAY=:0; " +
             "WID=$(cat /tmp/brave-widget-wid.txt 2>/dev/null | tr -d '\\n'); " +
             "[ -n \"$WID\" ] || exit 0; " +
             "xdotool getwindowgeometry \"$WID\" >/dev/null 2>&1 || exit 0; " +
+            decorCmd +
             "wmctrl -i -r \"$WID\" -b remove,maximized_vert,maximized_horz 2>/dev/null; " +
             "xdotool set_desktop_for_window \"$WID\" 4294967295 2>/dev/null; " +
             "wmctrl -i -r \"$WID\" -e 0," + wx + "," + wy + "," + ww + "," + wh + " 2>/dev/null; " +
             "TOP=$(xprop -id \"$WID\" _NET_FRAME_EXTENTS 2>/dev/null | grep -oP '[0-9]+' | awk 'NR==3'); " +
             "TOP=${TOP:-0}; " +
             "wmctrl -i -r \"$WID\" -e 0," + wx + ",$((TOP+" + wy + "))," + ww + ",$(("+wh+"-TOP)) 2>/dev/null; " +
-            "echo '[launch] repositioned existing WID='$WID >> " + tronLog + "; " +
             "echo ok"
         )
     }
@@ -186,6 +227,7 @@ Item {
         positionTimer.ww = ww
         positionTimer.wh = wh
         positionTimer.restart()
+        root.hasKnownWindow = true
     }
 
     function launchQuickLink(url) {
@@ -305,6 +347,18 @@ Item {
                 root.launch(Math.round(pos.x), Math.round(pos.y),
                             Math.round(fullRep.width), Math.round(fullRep.height))
             }
+        }
+
+        PlasmaComponents.Button {
+            Layout.fillWidth: true
+            visible: root.hasKnownWindow
+            text: i18n("Close Window")
+            icon.name: "window-close"
+            onClicked: closeWindowSource.run(
+                "DISPLAY=:0; WID=$(cat /tmp/brave-widget-wid.txt 2>/dev/null | tr -d '\\n'); " +
+                "[ -n \"$WID\" ] && xdotool windowclose \"$WID\" 2>/dev/null; " +
+                "rm -f /tmp/brave-widget-wid.txt"
+            )
         }
 
         // ── Quick Links ───────────────────────────────────────────────────
