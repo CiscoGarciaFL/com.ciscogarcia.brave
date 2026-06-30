@@ -138,6 +138,7 @@ Item {
                 "echo '[snap] WID='$WID >> " + tronLog + "; " +
                 "echo $WID > /tmp/brave-widget-wid.txt; " +
                 "wmctrl -i -r \"$WID\" -b remove,maximized_vert,maximized_horz; " +
+                "wmctrl -i -r \"$WID\" -b add,sticky; " +
                 "wmctrl -i -r \"$WID\" -e 0," + wx + "," + wy + "," + ww + "," + wh + "; " +
                 "TOP=$(xprop -id \"$WID\" _NET_FRAME_EXTENTS 2>/dev/null | grep -oP '[0-9]+' | awk 'NR==3'); " +
                 "TOP=${TOP:-0}; " +
@@ -162,6 +163,7 @@ Item {
             "[ -n \"$WID\" ] || exit 0; " +
             "xdotool getwindowgeometry \"$WID\" >/dev/null 2>&1 || exit 0; " +
             "wmctrl -i -r \"$WID\" -b remove,maximized_vert,maximized_horz 2>/dev/null; " +
+            "xdotool set_desktop_for_window \"$WID\" 4294967295 2>/dev/null; " +
             "wmctrl -i -r \"$WID\" -e 0," + wx + "," + wy + "," + ww + "," + wh + " 2>/dev/null; " +
             "TOP=$(xprop -id \"$WID\" _NET_FRAME_EXTENTS 2>/dev/null | grep -oP '[0-9]+' | awk 'NR==3'); " +
             "TOP=${TOP:-0}; " +
