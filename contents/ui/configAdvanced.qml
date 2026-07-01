@@ -17,7 +17,7 @@ Kirigami.FormLayout {
     QQC2.Label {
         font.pixelSize: 11
         font.italic: true
-        text: i18n("When unchecked, the browser window automatically covers the full widget area after embedding. The bar always appears first so you can set a URL.")
+        text: i18n("When unchecked, clicking Embed will position Brave over the full widget area. The cover/reveal icon in the address bar toggles this setting; click Embed to apply.")
     }
 
     Item { height: Kirigami.Units.largeSpacing }
@@ -29,7 +29,7 @@ Kirigami.FormLayout {
     QQC2.Label {
         font.pixelSize: 11
         font.italic: true
-        text: i18n("Removes the title bar from the embedded Brave window. Can also be toggled live from the address bar.")
+        text: i18n("Removes the title bar from the embedded Brave window. The title-bar icon in the address bar toggles this setting; click Embed to apply.")
     }
 
     Item { height: Kirigami.Units.largeSpacing }
@@ -48,5 +48,13 @@ Kirigami.FormLayout {
     QQC2.Button {
         text: i18n("Reset to default")
         onClicked: bravePathField.text = "/snap/bin/brave"
+    }
+
+    Item { height: Kirigami.Units.largeSpacing }
+
+    QQC2.Label {
+        font.pixelSize: 11
+        font.italic: true
+        text: i18n("Tip: You can also close the embedded Brave window with Alt+F4 while it is focused.")
     }
 }

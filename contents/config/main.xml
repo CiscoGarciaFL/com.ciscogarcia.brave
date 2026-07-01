@@ -29,6 +29,10 @@
             <label>Show address bar when the browser window opens. When false, Brave covers the full widget area automatically after embedding.</label>
             <default>true</default>
         </entry>
+        <entry name="autoEmbed" type="Bool">
+            <label>Automatically embed Brave the first time the widget is opened each session.</label>
+            <default>false</default>
+        </entry>
         <entry name="debugConsole" type="Bool">
             <label>Show the developer console toggle in the toolbar.</label>
             <default>false</default>

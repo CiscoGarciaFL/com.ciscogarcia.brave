@@ -8,14 +8,14 @@
         ],
         "Category": "Online Services",
         "Description": "Brave Browser Plasma widget — embeds a full browser with a configurable home page.",
-        "Icon": "logo",
+        "Icon": "com.ciscogarcia.brave",
         "Id": "com.ciscogarcia.brave",
         "License": "Apache-2.0",
         "Name": "Brave Widget Browser",
         "ServiceTypes": [
             "Plasma/Applet"
         ],
-        "Version": "2.2.0",
+        "Version": "2.3.0",
         "Website": "https://github.com/CiscoGarciaFL/com.ciscogarcia.brave"
     },
     "X-Plasma-API": "declarativeappletscript",
